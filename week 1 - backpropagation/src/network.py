@@ -26,6 +26,13 @@ class Network:
         return -(y_true - y_pred) # squared error loss
 
     def feed_forward(self, *x):
+        # a = [x] * (len(self.weights) + 1)
+        # for i, layer in enumerate(self.weights):
+        #     a[i] = np.append(a[i], 1)  # append bias term
+        #     z = layer.dot(a[i])  # weighted sum
+        #     y = self.sigma(z)  # activation
+        #     a[i + 1] = y  # output of this layer is input of the next
+
         def _feed_forward(a):
             for layer in self.weights:
                 a = np.append(a, 1) # append bias term
@@ -42,19 +49,21 @@ class Network:
 
     def train_0(self, test_set):
         for sample in test_set:
-            # feed forward
+            # read sample
             x = sample['data']
-            y_pred = self.feed_forward(sample['data'])
             y_true = sample['label']
 
-            for layer in self.weights:
-                # create X matrix: each row is a copy of x
-                X = np.zeros(layer.shape)
-                X[:] = np.append(x, 1)
+            # feed forward
+            a_0 = np.append(x, 1)
+            a_1 = self.sigma(self.weights[0].dot(a_0))
 
-                # subtract gradient from layer's weights
-                gradient = self.loss_prime(y_true, y_pred) * self.sigma_prime(y_pred) * X
-                layer -= self.eta * gradient
+            # create X matrix: each row is a copy of x
+            A_0 = np.zeros(self.weights[0].shape)
+            A_0[:] = a_0
+
+            # subtract gradient from layer's weights
+            gradient = self.loss_prime(y_true, a_1) *  self.sigma_prime(a_1)
+            self.weights[0] -= self.eta * gradient * A_0
 
     def train_1(self, test_set):
         for sample in test_set:
@@ -63,22 +72,22 @@ class Network:
             y_true = sample['label']
 
             # feed forward
-            a = [x]
-            for layer in self.weights:
-                a[-1] = np.append(a[-1], 1)  # append bias term
-                z = layer.dot(a[-1])  # weighted sum
-                y = self.sigma(z)  # activation
-                a.append(y)  # output of this layer is input of the next
+            a_0 = np.append(x, 1)
+            a_1 = np.append(self.sigma(self.weights[0].dot(a_0)), 1)
+            a_2 = self.sigma(self.weights[1].dot(a_0))
 
             # backpropagate
-            for layer in self.weights:
-                # create X matrix: each row is a copy of x
-                X = np.zeros(layer.shape)
-                X[:] = np.append(x, 1)
+            A_0 = np.zeros(self.weights[0].shape)
+            A_0[:] = a_0
 
-                # subtract gradient from layer's weights
-                gradient = self.loss_prime(y_true, a[-1]) * self.sigma_prime(a[-1]) * X
-                layer -= self.eta * gradient
+            A_1 = np.zeros(self.weights[1].shape)
+            A_1[:] = a_1
+
+            gradient_1 = self.loss_prime(y_true, a_2) * self.sigma_prime(a_2)
+            gradient_0 = np.dot(gradient_1, self.weights[1]) * self.sigma_prime(a_1)
+
+            self.weights[1] -= self.eta * gradient_1 * A_1
+            self.weights[0] -= self.eta * gradient_0 * A_0
 
     def train_n(self, test_set):
         pass
