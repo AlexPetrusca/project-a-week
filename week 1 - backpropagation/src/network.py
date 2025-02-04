@@ -40,7 +40,7 @@ class Network:
         else:
             return y # return output vector
 
-    def train(self, test_set, batch_size=32):
+    def train_0(self, test_set):
         for sample in test_set:
             # feed forward
             x = sample['data']
@@ -55,6 +55,33 @@ class Network:
                 # subtract gradient from layer's weights
                 gradient = self.loss_prime(y_true, y_pred) * self.sigma_prime(y_pred) * X
                 layer -= self.eta * gradient
+
+    def train_1(self, test_set):
+        for sample in test_set:
+            # read sample
+            x = sample['data']
+            y_true = sample['label']
+
+            # feed forward
+            a = [x]
+            for layer in self.weights:
+                a[-1] = np.append(a[-1], 1)  # append bias term
+                z = layer.dot(a[-1])  # weighted sum
+                y = self.sigma(z)  # activation
+                a.append(y)  # output of this layer is input of the next
+
+            # backpropagate
+            for layer in self.weights:
+                # create X matrix: each row is a copy of x
+                X = np.zeros(layer.shape)
+                X[:] = np.append(x, 1)
+
+                # subtract gradient from layer's weights
+                gradient = self.loss_prime(y_true, a[-1]) * self.sigma_prime(a[-1]) * X
+                layer -= self.eta * gradient
+
+    def train_n(self, test_set):
+        pass
 
     def validate(self, validation_set, verbose=False, print_samples=10):
         average_loss = 0

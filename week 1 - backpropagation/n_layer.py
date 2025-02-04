@@ -11,5 +11,5 @@ if __name__ == "__main__":
 
     network = Network(2, 1, [2])
     network.validate(test_set)
-    network.train_1(train_set)
+    network.train_n(train_set)
     network.validate(test_set, verbose=True)
