@@ -9,7 +9,7 @@ class Network:
         self.weights = []
         for i in range(len(self.dims) - 1):
             num_neurons = self.dims[i + 1]
-            num_weights = self.dims[i] + 1
+            num_weights = self.dims[i]
             self.weights.append(np.random.randn(num_neurons, num_weights))
 
     def sigma(self, z):
@@ -25,23 +25,21 @@ class Network:
     def loss_prime(self, y_true, y_pred):
         return -(y_true - y_pred) # squared error loss
 
-    def feed_forward(self, *x):
+    def feed_forward(self, x):
         # a = [x] * (len(self.weights) + 1)
         # for i, layer in enumerate(self.weights):
-        #     a[i] = np.append(a[i], 1)  # append bias term
         #     z = layer.dot(a[i])  # weighted sum
         #     y = self.sigma(z)  # activation
         #     a[i + 1] = y  # output of this layer is input of the next
 
         def _feed_forward(a):
             for layer in self.weights:
-                a = np.append(a, 1) # append bias term
-                z = layer.dot(a) # weighted sum
+                z = layer @ a # weighted sum
                 y = self.sigma(z) # activation
                 a = y # output of this layer is input of the next
             return a
 
-        y = _feed_forward(x)
+        y = _feed_forward(np.array(x))
         if len(y) == 1:
             return y[0] # unwrap scalar value
         else:
@@ -54,7 +52,7 @@ class Network:
             y_true = sample['label']
 
             # feed forward
-            a_0 = np.append(x, 1)
+            a_0 = x
             z_1 = self.weights[0] @ a_0
             a_1 = self.sigma(z_1)
 
@@ -69,9 +67,9 @@ class Network:
             y_true = sample['label']
 
             # feed forward
-            a_0 = np.append(x, 1)
+            a_0 = x
             z_1 = self.weights[0] @ a_0
-            a_1 = np.append(self.sigma(z_1), 1)
+            a_1 = self.sigma(z_1)
             z_2 = self.weights[1] @ a_1
             a_2 = self.sigma(z_2)
 
@@ -99,9 +97,9 @@ class Network:
         accuracy = 0
         num_samples = 0
         for sample in validation_set:
-            x = sample['data']
-            y_pred = self.feed_forward(sample['data'])
-            y_true = sample['label']
+            x = sample['data'].reshape(-1, 1)
+            y_pred = self.feed_forward(x)
+            y_true = sample['label'].reshape(-1, 1)
 
             loss = self.loss(y_true, y_pred)
             # if verbose and num_samples < print_samples:
