@@ -4,13 +4,15 @@ class Network:
 
     def __init__(self, in_dim, out_dim, hid_dims):
         self.dims = [in_dim, *hid_dims, out_dim]
-        self.eta = 0.1  # learning rate
+        self.eta = 0.01  # learning rate
 
         self.weights = []
+        self.biases = []
         for i in range(len(self.dims) - 1):
             num_neurons = self.dims[i + 1]
             num_weights = self.dims[i]
             self.weights.append(np.random.randn(num_neurons, num_weights))
+            self.biases.append(np.random.randn(num_neurons, 1))
 
     def sigma(self, z):
         return 1 / (1 + np.e**(-z)) # sigmoid
@@ -33,8 +35,8 @@ class Network:
         #     a[i + 1] = y  # output of this layer is input of the next
 
         def _feed_forward(a):
-            for layer in self.weights:
-                z = layer @ a # weighted sum
+            for w, b in zip(self.weights, self.biases):
+                z = w @ a + b # weighted sum
                 y = self.sigma(z) # activation
                 a = y # output of this layer is input of the next
             return a
@@ -53,7 +55,7 @@ class Network:
 
             # feed forward
             a_0 = x
-            z_1 = self.weights[0] @ a_0
+            z_1 = self.weights[0] @ a_0 + self.biases[0]
             a_1 = self.sigma(z_1)
 
             # subtract gradient from layer's weights
@@ -63,14 +65,14 @@ class Network:
     def train_1(self, test_set):
         for sample in test_set:
             # read sample
-            x = sample['data']
-            y_true = sample['label']
+            x = sample['data'].reshape(-1, 1)
+            y_true = sample['label'].reshape(-1, 1)
 
             # feed forward
             a_0 = x
-            z_1 = self.weights[0] @ a_0
+            z_1 = self.weights[0] @ a_0 + self.biases[0]
             a_1 = self.sigma(z_1)
-            z_2 = self.weights[1] @ a_1
+            z_2 = self.weights[1] @ a_1 + self.biases[1]
             a_2 = self.sigma(z_2)
 
             # backpropagate
@@ -88,6 +90,8 @@ class Network:
 
             self.weights[1] -= self.eta * weight_gradient_2
             self.weights[0] -= self.eta * weight_gradient_1
+            self.biases[1] -= self.eta * gradient_2
+            self.biases[0] -= self.eta * gradient_1
 
     def train_n(self, test_set):
         pass
