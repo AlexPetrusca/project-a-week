@@ -55,15 +55,12 @@ class Network:
 
             # feed forward
             a_0 = np.append(x, 1)
-            a_1 = self.sigma(self.weights[0].dot(a_0))
-
-            # create X matrix: each row is a copy of x
-            A_0 = np.zeros(self.weights[0].shape)
-            A_0[:] = a_0
+            z_1 = self.weights[0] @ a_0
+            a_1 = self.sigma(z_1)
 
             # subtract gradient from layer's weights
-            gradient = self.loss_prime(y_true, a_1) *  self.sigma_prime(a_1)
-            self.weights[0] -= self.eta * gradient * A_0
+            gradient = self.loss_prime(y_true, a_1) * self.sigma_prime(z_1)
+            self.weights[0] -= self.eta * gradient.reshape(1, -1).T @ a_0.reshape(1, -1)
 
     def train_1(self, test_set):
         for sample in test_set:
@@ -73,21 +70,26 @@ class Network:
 
             # feed forward
             a_0 = np.append(x, 1)
-            a_1 = np.append(self.sigma(self.weights[0].dot(a_0)), 1)
-            a_2 = self.sigma(self.weights[1].dot(a_0))
+            z_1 = self.weights[0] @ a_0
+            a_1 = np.append(self.sigma(z_1), 1)
+            z_2 = self.weights[1] @ a_1
+            a_2 = self.sigma(z_2)
 
             # backpropagate
-            A_0 = np.zeros(self.weights[0].shape)
-            A_0[:] = a_0
+            a_1 = a_1.reshape(-1, 1)
+            a_0 = a_0.reshape(-1, 1)
 
-            A_1 = np.zeros(self.weights[1].shape)
-            A_1[:] = a_1
+            sigma_prime_z2 = self.sigma_prime(z_2).reshape(-1, 1)
+            sigma_prime_z1 = self.sigma_prime(z_1).reshape(-1, 1)
 
-            gradient_1 = self.loss_prime(y_true, a_2) * self.sigma_prime(a_2)
-            gradient_0 = np.dot(gradient_1, self.weights[1]) * self.sigma_prime(a_1)
+            gradient_2 = self.loss_prime(y_true, a_2).reshape(-1, 1) * sigma_prime_z2
+            gradient_1 = (self.weights[1] @ gradient_2) * sigma_prime_z1.T
 
-            self.weights[1] -= self.eta * gradient_1 * A_1
-            self.weights[0] -= self.eta * gradient_0 * A_0
+            weight_gradient_2 = a_1 @ gradient_2.T
+            weight_gradient_1 = a_0 @ gradient_1.T
+
+            self.weights[1] -= self.eta * weight_gradient_2
+            self.weights[0] -= self.eta * weight_gradient_1
 
     def train_n(self, test_set):
         pass
@@ -102,12 +104,12 @@ class Network:
             y_true = sample['label']
 
             loss = self.loss(y_true, y_pred)
-            if verbose and num_samples < print_samples:
-                print(f"Data: {str(x):<35} Label: {y_true:<5} Prediction: {y_pred:<24} Loss: {loss:<24}")
+            # if verbose and num_samples < print_samples:
+                # print(f"Data: {str(x):<35} Label: {y_true:<5} Prediction: {y_pred:<24} Loss: {loss:<24}")
 
             num_samples += 1
             average_loss += loss
-            if round(y_pred) == y_true:
+            if np.array_equal(np.round(y_pred), y_true):
                 accuracy += 1
 
         accuracy /= num_samples
