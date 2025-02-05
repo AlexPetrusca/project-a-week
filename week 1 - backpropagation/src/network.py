@@ -4,7 +4,7 @@ class Network:
 
     def __init__(self, in_dim, out_dim, hid_dims):
         self.dims = [in_dim, *hid_dims, out_dim]
-        self.eta = 0.01  # learning rate
+        self.eta = 0.1  # learning rate
 
         self.weights = []
         for i in range(len(self.dims) - 1):
@@ -81,10 +81,10 @@ class Network:
             sigma_prime_z1 = self.sigma_prime(z_1).reshape(-1, 1)
 
             gradient_2 = self.loss_prime(y_true, a_2).reshape(-1, 1) * sigma_prime_z2
-            gradient_1 = (self.weights[1] @ gradient_2) * sigma_prime_z1.T
+            gradient_1 = (self.weights[1].T @ gradient_2) * sigma_prime_z1
 
-            weight_gradient_2 = a_1 @ gradient_2.T
-            weight_gradient_1 = a_0 @ gradient_1.T
+            weight_gradient_2 = gradient_2 @ a_1.T
+            weight_gradient_1 = gradient_1 @ a_0.T
 
             self.weights[1] -= self.eta * weight_gradient_2
             self.weights[0] -= self.eta * weight_gradient_1
@@ -98,7 +98,7 @@ class Network:
         num_samples = 0
         for sample in validation_set:
             x = sample['data'].reshape(-1, 1)
-            y_pred = self.feed_forward(x)
+            y_pred = self.feed_forward(x).reshape(-1, 1)
             y_true = sample['label'].reshape(-1, 1)
 
             loss = self.loss(y_true, y_pred)

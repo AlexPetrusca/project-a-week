@@ -9,5 +9,5 @@ class DatasetGenerator:
     def generate_samples(self, n):
         for i in range(n):
             x = np.random.randn(self.param_count)
-            y = self.generator(*x)
+            y = np.array(self.generator(*x))
             yield {"data": x, "label": y}
