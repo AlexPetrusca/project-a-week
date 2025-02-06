@@ -13,7 +13,7 @@ if __name__ == "__main__":
 
     # datagen = DatasetGenerator(lambda x, y: int(x) + int(y)) # addition
 
-    train_set = list(datagen.generate_samples(100000))
+    train_set = list(datagen.generate_samples(250000))
     test_set = list(datagen.generate_samples(1000))
 
     network = Network(2, 1, [10])

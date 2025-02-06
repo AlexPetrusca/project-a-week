@@ -10,4 +10,4 @@ class DatasetGenerator:
         for i in range(n):
             x = np.random.randn(self.param_count)
             y = np.array(self.generator(*x))
-            yield {"data": x, "label": y}
+            yield {"data": x.reshape(-1, 1), "label": y.reshape(-1, 1)}
