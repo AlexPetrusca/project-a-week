@@ -91,12 +91,14 @@ class Network:
                 a.append(self.sigma(z[i + 1]))  # activation
 
             # backpropagate
-            gradient_i = self.loss_prime(y_true, a[-1]) * self.sigma_prime(z[-1])
-            weight_gradient_i = gradient_i @ a[-2].T
-            self.weights[-1] -= self.eta * weight_gradient_i
-            self.biases[-1] -= self.eta * gradient_i
-            for i in range(2, len(self.weights) + 1):
-                gradient_i = (self.weights[-i + 1].T @ gradient_i) * self.sigma_prime(z[-i])
+            gradient_i = self.loss_prime(y_true, a[-1])
+            for i in range(1, len(self.weights) + 1):
+                if i == 1:
+                    w_i = np.identity(gradient_i.shape[0])
+                else:
+                    w_i = self.weights[-i + 1].T
+
+                gradient_i = (w_i @ gradient_i) * self.sigma_prime(z[-i])
                 weight_gradient_i = gradient_i @ a[-i - 1].T
                 self.weights[-i] -= self.eta * weight_gradient_i
                 self.biases[-i] -= self.eta * gradient_i
