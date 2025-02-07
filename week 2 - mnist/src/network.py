@@ -28,11 +28,12 @@ class Network:
                 return np.tanh(z) / 2 + 0.5
 
     def sigma_prime(self, z):
-        if self.activation == Network.Activation.SIGMOID:
-            y = 1 / (1 + np.exp(-z))
-            return y * (1 - y)
-        elif self.activation == Network.Activation.TANH:
-            return (1 - np.tanh(z)**2) / 2
+        match self.activation:
+            case Network.Activation.SIGMOID:
+                y = 1 / (1 + np.exp(-z))
+                return y * (1 - y)
+            case Network.Activation.TANH:
+                return (1 - np.tanh(z) ** 2) / 2
 
     def loss(self, y_true, y_pred):
         return (y_true - y_pred)**2 / 2 # squared error loss
