@@ -36,8 +36,8 @@ class Network:
 
         return x
 
-    def train_0(self, test_set):
-        for sample in test_set:
+    def train_0(self, training_set):
+        for sample in training_set:
             # read sample
             x = sample['data']
             y_true = sample['label']
@@ -53,8 +53,8 @@ class Network:
             self.weights[0] -= self.eta * weight_gradient_i
             self.biases[0] -= self.eta * gradient_i
 
-    def train_1(self, test_set):
-        for sample in test_set:
+    def train_1(self, training_set):
+        for sample in training_set:
             # read sample
             x = sample['data']
             y_true = sample['label']
@@ -77,8 +77,8 @@ class Network:
             self.weights[0] -= self.eta * weight_gradient_1
             self.biases[0] -= self.eta * gradient_1
 
-    def train_n(self, test_set):
-        for sample in test_set:
+    def train_n(self, training_set):
+        for sample in training_set:
             # read sample
             x = sample['data']
             y_true = sample['label']

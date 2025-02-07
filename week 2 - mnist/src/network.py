@@ -1,3 +1,4 @@
+import random
 import numpy as np
 
 class Network:
@@ -5,8 +6,6 @@ class Network:
 
     def __init__(self, in_dim, out_dim, hid_dims):
         self.dims = [in_dim, *hid_dims, out_dim]
-        self.eta = 0.01  # learning rate
-
         self.weights = []
         self.biases = []
         for i in range(len(self.dims) - 1):
@@ -33,15 +32,10 @@ class Network:
             z = w @ x + b  # weighted sum
             y = self.sigma(z)  # activation
             x = y  # output of this layer is input of the next
-
         return x
 
-    def train(self, test_set):
-        for sample in test_set:
-            # read sample
-            x = sample['data']
-            y_true = sample['label']
-
+    def train(self, training_set, batch_size=32, epochs=10, eta=0.01, validation_set=None):
+        def back_propagate(x, y):
             # feed forward
             z = [Network.NULL]
             a = [x]
@@ -50,7 +44,7 @@ class Network:
                 a.append(self.sigma(z[i + 1]))  # activation
 
             # backpropagate
-            gradient_i = self.loss_prime(y_true, a[-1])
+            gradient_i = self.loss_prime(y, a[-1])
             for i in range(1, len(self.weights) + 1):
                 if i == 1:
                     w_i = np.identity(gradient_i.shape[0])
@@ -59,11 +53,40 @@ class Network:
 
                 gradient_i = (w_i @ gradient_i) * self.sigma_prime(z[-i])
                 weight_gradient_i = gradient_i @ a[-i - 1].T
-                self.weights[-i] -= self.eta * weight_gradient_i
-                self.biases[-i] -= self.eta * gradient_i
+                bias_gradient_i = gradient_i @ np.ones((batch_size, 1))
 
-    def validate(self, validation_set, verbose=False, print_samples=10):
-        average_loss = 0
+                # doesn't `eta / batch_size` just make eta dependent on the batch size? (Answer: Yes, so then what's the point...)
+                #   - smaller batch size will have higher eta + more updates --> needs fewer epochs --> faster learner
+                #   - bigger batch size will have lower eta + fewer updates --> needs more epochs --> slower learner
+                self.weights[-i] -= eta / batch_size * weight_gradient_i
+                self.biases[-i] -= eta / batch_size * bias_gradient_i
+
+        def create_batch(start):
+            end = min(batch_start + batch_size, len(training_set))
+            x = training_set[start]['data']
+            y = training_set[start]['label']
+            for idx in range(start + 1, end):
+                x = np.hstack((x, training_set[idx]['data']))
+                y = np.hstack((y, training_set[idx]['label']))
+            return x, y
+
+        def log_epoch(epoch):
+            validation_log = self.validate(validation_set)
+            epoch_log = f"Epoch {epoch}/{epochs}:"
+            print(f"{epoch_log:<15} {validation_log}")
+
+        log_epoch(0)
+        for epoch in range(epochs):
+            random.shuffle(training_set)
+
+            for batch_start in range(0, len(training_set), batch_size):
+                x, y = create_batch(batch_start)
+                back_propagate(x, y)
+
+            log_epoch(epoch + 1)
+
+    def validate(self, validation_set, to_print=False):
+        loss = 0
         accuracy = 0
         num_samples = 0
         for sample in validation_set:
@@ -71,13 +94,15 @@ class Network:
             y_pred = self.feed_forward(x)
             y_true = sample['label']
 
-            loss = self.loss(y_true, y_pred)
-
             num_samples += 1
-            average_loss += loss
+            loss += self.loss(y_true, y_pred)
             if np.array_equal(np.round(y_pred), y_true):
                 accuracy += 1
 
         accuracy /= num_samples
-        average_loss /= num_samples
-        print(f"Accuracy: {accuracy:<10} Average Loss: {average_loss}")
+        loss = np.linalg.norm(loss)
+
+        log = f"Accuracy: {accuracy:<10} Loss: {loss:<10}"
+        if to_print:
+            print(log)
+        return log
