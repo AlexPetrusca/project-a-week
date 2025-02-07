@@ -55,9 +55,6 @@ class Network:
                 weight_gradient_i = gradient_i @ a[-i - 1].T
                 bias_gradient_i = gradient_i @ np.ones((batch_size, 1))
 
-                # doesn't `eta / batch_size` just make eta dependent on the batch size? (Answer: Yes, so then what's the point...)
-                #   - smaller batch size will have higher eta + more updates --> needs fewer epochs --> faster learner
-                #   - bigger batch size will have lower eta + fewer updates --> needs more epochs --> slower learner
                 self.weights[-i] -= eta / batch_size * weight_gradient_i
                 self.biases[-i] -= eta / batch_size * bias_gradient_i
 
@@ -71,9 +68,10 @@ class Network:
             return x, y
 
         def log_epoch(epoch):
-            validation_log = self.validate(validation_set)
-            epoch_log = f"Epoch {epoch}/{epochs}:"
-            print(f"{epoch_log:<15} {validation_log}")
+            if validation_set is not None:
+                validation_log = self.validate(validation_set)
+                epoch_log = f"Epoch {epoch}/{epochs}:"
+                print(f"{epoch_log:<15} {validation_log}")
 
         log_epoch(0)
         for epoch in range(epochs):
@@ -81,7 +79,8 @@ class Network:
 
             for batch_start in range(0, len(training_set), batch_size):
                 x, y = create_batch(batch_start)
-                back_propagate(x, y)
+                if x.shape[1] == batch_size:
+                    back_propagate(x, y)
 
             log_epoch(epoch + 1)
 
