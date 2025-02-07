@@ -27,7 +27,7 @@ if __name__ == "__main__":
 
     print("MNIST Dataset Loaded!")
 
-    network = Network(784, 10, [320, 160, 80, 40, 20])
-    network.train(train_set, batch_size=64, epochs=100, eta=5, validation_set=test_set)
+    network = Network(784, 10, [320, 160, 80, 40, 20], activation=Network.Activation.SIGMOID)
+    network.train(train_set, batch_size=64, epochs=100, eta=3, validation_set=test_set)
 
     print("Network Trained!")

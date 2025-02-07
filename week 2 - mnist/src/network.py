@@ -1,25 +1,38 @@
+from enum import Enum
 import random
 import numpy as np
 
 class Network:
     NULL = np.empty(0)
 
-    def __init__(self, in_dim, out_dim, hid_dims):
+    class Activation(Enum):
+        SIGMOID = 1
+        TANH = 2
+
+    def __init__(self, in_dim, out_dim, hid_dims, activation=Activation.SIGMOID):
         self.dims = [in_dim, *hid_dims, out_dim]
         self.weights = []
         self.biases = []
+        self.activation = activation
         for i in range(len(self.dims) - 1):
             num_neurons = self.dims[i + 1]
             num_weights = self.dims[i]
             self.weights.append(np.random.randn(num_neurons, num_weights))
-            self.biases.append(np.random.randn(num_neurons, 1))
+            self.biases.append(np.zeros((num_neurons, 1)))
 
     def sigma(self, z):
-        return 1 / (1 + np.e**(-z)) # sigmoid
+        match self.activation:
+            case Network.Activation.SIGMOID:
+                return 1 / (1 + np.exp(-z))
+            case Network.Activation.TANH:
+                return np.tanh(z) / 2 + 0.5
 
     def sigma_prime(self, z):
-        y = self.sigma(z)
-        return y * (1 - y)
+        if self.activation == Network.Activation.SIGMOID:
+            y = 1 / (1 + np.exp(-z))
+            return y * (1 - y)
+        elif self.activation == Network.Activation.TANH:
+            return (1 - np.tanh(z)**2) / 2
 
     def loss(self, y_true, y_pred):
         return (y_true - y_pred)**2 / 2 # squared error loss
