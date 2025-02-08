@@ -22,7 +22,8 @@ class Network:
         for i in range(len(self.dims) - 1):
             num_neurons = self.dims[i + 1]
             num_weights = self.dims[i]
-            self.weights.append(np.random.randn(num_neurons, num_weights))
+            # todo: use Xavier initialization
+            self.weights.append(np.random.randn(num_neurons, num_weights) * 0.01)
             self.biases.append(np.zeros((num_neurons, 1)))
 
     def sigma(self, z):
