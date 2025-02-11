@@ -15,6 +15,18 @@ if __name__ == "__main__":
 
     # Define plotting function
     plt.ion()
+
+    def callback(ctx):
+        log_validation_error(ctx)
+        plot_decision_boundary(ctx)
+
+    def log_validation_error(ctx):
+        validation_set = ctx['validation_set']
+        if validation_set is not None:
+            validation_log = ctx['network'].validate(validation_set)
+            epoch_log = f"Epoch {ctx['epoch']}/{ctx['epochs']}:"
+            print(f"{epoch_log:<15} {validation_log}")
+
     def plot_decision_boundary(ctx):
         # clear
         plt.clf()
@@ -39,7 +51,12 @@ if __name__ == "__main__":
         if ctx.get('status') == 'Done':
             plt.show(block=True)
         else:
-            plt.pause(1 / 144)
+            plt.pause(1 / 1000)
 
     # Train the model
-    network.train(train_set, batch_size=pts.shape[0], epochs=1000, eta=5, validation_set=train_set, cb=plot_decision_boundary)
+    network.train(
+        train_set,
+        validation_set=train_set,
+        batch_size=pts.shape[0], epochs=10000, eta=2,
+        epoch_cb=callback, epoch_cb_stride=100
+    )

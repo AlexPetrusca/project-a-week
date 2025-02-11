@@ -3,11 +3,16 @@ import matplotlib.pyplot as plt
 import sklearn
 import sklearn.linear_model
 
+np.random.seed(99342636)
+
+# Enable interactive mode.
+plt.ion()
+
 # Training rate.
 alpha = 2
 
 # Load the points and ensure shapes are X: (2, m) and Y: (1, m).
-pts = np.loadtxt('pts.txt')
+pts = np.loadtxt('res/points.txt')
 X, Y = pts[:,:2].T, pts[:,2][None, :]
 
 # Number of feature vector components (should be 2!).
@@ -98,21 +103,20 @@ def train(X, Y, max_it=1000):
         Z1, A1, Z2, A2 = predictions(X, W1, b1, W2, b2)
         J = cost(A2, Y)
         W1, b1, W2, b2 = backprop(A1, Z1, A2, Z2, W1, b1, W2, b2)
-        if not it % 100:
-            # Provide an update on the progress we have made so far.
-            print('{}: J = {}'.format(it, J))
-            # Clear the current figure and redraw with the latest prediction.
-            plt.clf()
-            plot_decision_boundary(X, Y, (W1, b1, W2, b2))
-            plt.xlim(0,1)
-            plt.ylim(0,1)
-            plt.savefig('frames/{:05d}.png'.format(it))
+        # Provide an update on the progress we have made so far.
+        print('{}: J = {}'.format(it, J))
+        # Clear the current figure and redraw with the latest prediction.
+        plt.clf()
+        plot_decision_boundary(X, Y, (W1, b1, W2, b2))
+        plt.xlim(0,1)
+        plt.ylim(0,1)
+        plt.pause(1/144)
 
     return W1, b1, W2, b2
 
-W1, b1, W2, b2 = train(X, Y, 7000)
+W1, b1, W2, b2 = train(X, Y, 5000)
 
 plot_decision_boundary(X, Y, (W1, b1, W2, b2))
 plt.xlim(0,1)
 plt.ylim(0,1)
-plt.show()
+plt.show(block=True)
