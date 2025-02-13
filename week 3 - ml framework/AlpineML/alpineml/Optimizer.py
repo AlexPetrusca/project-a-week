@@ -11,16 +11,13 @@ class Optimizer(ABC):
         self.loss_fn: Optional[Function] = None
 
     def train_network(self, x: mx.array, y: mx.array):
-        y_pred = x
-        for layer in self.network.layers:
-            y_pred = layer.forward(y_pred)
-
-        grads = []  # delete me
+        # feed forward
+        y_pred = self.network.forward(x, save_ctx=True)
+        # backpropagate
         grad = self.loss_fn.derivative(y_pred, y)
         for layer in reversed(self.network.layers):
-            grads.append(grad)  # delete me
             grad = layer.backward(grad)
-
+        # update layers
         for layer in self.network.layers:
             layer.update(2 / x.shape[1])
 
