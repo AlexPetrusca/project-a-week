@@ -118,7 +118,7 @@ class Network:
             a_2 = self.sigma(z_2, fn=Network.Activation.SIGMOID)
 
             # backpropagate
-            gradient_2 = self.loss_prime(y, a_2)
+            gradient_2 = self.loss_prime(y, a_2) * self.sigma_prime(z_2, fn=Network.Activation.SIGMOID)
             weight_gradient_2 = gradient_2 @ a_1.T
             bias_gradient_2 = gradient_2 @ np.ones((batch_size, 1))
 
