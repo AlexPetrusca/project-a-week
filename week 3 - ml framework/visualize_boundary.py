@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 
 from alpineml import Network, Optimizer
 from alpineml.layer import Linear, Activation
-from alpineml.function import Sigmoid, Tanh, MeanSquareError
+from alpineml.function import Sigmoid, Tanh, Relu, MeanSquareError
 
 def plot_decision_boundary(points, labels):
     # Set min and max values and give it some padding.
@@ -30,8 +30,10 @@ def plot_decision_boundary(points, labels):
 
 network = Network()
 network.add_layer(Linear(2, 16))
-network.add_layer(Activation(Tanh()))
-network.add_layer(Linear(16, 1))
+network.add_layer(Activation(Relu()))
+network.add_layer(Linear(16, 8))
+network.add_layer(Activation(Relu()))
+network.add_layer(Linear(8, 1))
 network.add_layer(Activation(Sigmoid()))
 
 optimizer = Optimizer()

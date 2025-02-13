@@ -7,9 +7,9 @@ class Network(ABC):
     def __init__(self, layers=None):
         self.layers: list[Layer] = layers if layers is not None else []
 
-    def forward(self, x: mx.array) -> mx.array:
+    def forward(self, x: mx.array, save_ctx=False) -> mx.array:
         for layer in self.layers:
-            x = layer.forward(x)
+            x = layer.forward(x, save_ctx=save_ctx)
         return x
 
     def add_layer(self, layer: Layer) -> None:

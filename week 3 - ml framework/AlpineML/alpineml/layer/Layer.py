@@ -7,15 +7,19 @@ class Layer(ABC):
     def __init__(self):
         self.ctx: LayerContext = LayerContext()
 
-    def forward(self, x_in: mx.array) -> mx.array:
-        self.ctx.x_in = x_in
-        self.ctx.x_out = self._forward(x_in)
-        return self.ctx.x_out
+    def forward(self, x_in: mx.array, save_ctx=True) -> mx.array:
+        x_out = self._forward(x_in)
+        if save_ctx:
+            self.ctx.x_in = x_in
+            self.ctx.x_out = x_out
+        return x_out
 
-    def backward(self, dx_out: mx.array) -> mx.array:
-        self.ctx.dx_out = dx_out
-        self.ctx.dx_in = self._backward(dx_out)
-        return self.ctx.dx_in
+    def backward(self, dx_out: mx.array, save_ctx=True) -> mx.array:
+        dx_in = self._backward(dx_out)
+        if save_ctx:
+            self.ctx.dx_out = dx_out
+            self.ctx.dx_in = dx_in
+        return dx_in
 
     def update(self, scale: float) -> None:
         self._update(scale)
