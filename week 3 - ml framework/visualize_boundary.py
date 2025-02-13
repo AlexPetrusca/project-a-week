@@ -1,62 +1,49 @@
 import numpy as np
+import mlx.core as mx
 import matplotlib.pyplot as plt
-from src.network import Network
 
-if __name__ == "__main__":
-    # Fetch the dataset
-    train_set = []
-    pts = np.loadtxt('./res/points.txt')
-    X, Y = pts[:, :2], pts[:, 2:]
-    for x, y in zip(X, Y):
-        train_set.append({'data': x.reshape(-1, 1), 'label': y.reshape(-1, 1)})
+from alpineml import Network, Optimizer
+from alpineml.layer import Linear, Activation
+from alpineml.function import Sigmoid, Tanh, MeanSquareError
 
-    # Create the model
-    network = Network(2, 1, [16])
+def plot_decision_boundary(points, labels):
+    # Set min and max values and give it some padding.
+    x_min, x_max = points[0].min() - 0.1, points[0].max() + 0.1
+    y_min, y_max = points[1].min() - 0.1, points[1].max() + 0.1
+    h = 0.01
+    # Generate a meshgrid of points with orthogonal spacing.
+    xx, yy = mx.meshgrid(mx.arange(x_min.item(), x_max.item(), h), mx.arange(y_min.item(), y_max.item(), h))
+    nxx, nyy = xx.flatten().reshape(-1, 1), yy.flatten().reshape(-1, 1)
+    # Prediction of the classified values across the whole grid.
+    grid_points = mx.concatenate([nxx, nyy], axis=1).T
+    grid_predict = network.forward(grid_points)
+    Z = mx.round(grid_predict).reshape(xx.shape)
+    # Plot the decision boundary as a contour plot and training examples.
+    plt.contourf(xx, yy, Z, cmap=plt.cm.Spectral)
+    plt.scatter(points[0, :], points[1, :], c=labels, cmap=plt.cm.Spectral, s=8)
+    # update axes
+    plt.xlabel('x1')
+    plt.ylabel('x2')
+    plt.xlim(0, 1)
+    plt.ylim(0, 1)
+    plt.pause(0.0001)
 
-    # Define plotting function
-    plt.ion()
+network = Network()
+network.add_layer(Linear(2, 16))
+network.add_layer(Activation(Tanh()))
+network.add_layer(Linear(16, 1))
+network.add_layer(Activation(Sigmoid()))
 
-    def callback(ctx):
-        log_validation_error(ctx)
-        plot_decision_boundary(ctx)
+optimizer = Optimizer()
+optimizer.bind_network(network)
+optimizer.bind_loss_fn(MeanSquareError())
 
-    def log_validation_error(ctx):
-        validation_set = ctx['validation_set']
-        if validation_set is not None:
-            validation_log = ctx['network'].validate(validation_set)
-            epoch_log = f"Epoch {ctx['epoch']}/{ctx['epochs']}:"
-            print(f"{epoch_log:<15} {validation_log}")
+pts = np.loadtxt('res/points.txt')
+X, Y = mx.array(pts[:, :2].T), mx.array(pts[:, 2:].T)
+for i in range(50000):
+    optimizer.train_network(X, Y)
+    if i % 1000 == 0:
+        print(f"Epoch {i}")
+        plot_decision_boundary(X, Y)
 
-    def plot_decision_boundary(ctx):
-        # clear
-        plt.clf()
-        # Set min and max values and give it some padding.
-        x_min, x_max = X[:, 0].min() - 0.1, X[:, 0].max() + 0.1
-        y_min, y_max = X[:, 1].min() - 0.1, X[:, 1].max() + 0.1
-        h = 0.01
-        # Generate a meshgrid of points with orthogonal spacing.
-        xx, yy = np.meshgrid(np.arange(x_min, x_max, h), np.arange(y_min, y_max, h))
-        # Prediction of the classified values across the whole grid.
-        Z = np.round(ctx['network'].feed_forward(np.c_[xx.ravel(), yy.ravel()].T)[-1])
-        Z = Z.reshape(xx.shape)
-        # Plot the decision boundary as a contour plot and training examples.
-        plt.contourf(xx, yy, Z, cmap=plt.cm.Spectral)
-        plt.scatter(X[:, 0], X[:, 1], c=Y.T, cmap=plt.cm.Spectral, s=8)
-        # update axes
-        plt.xlabel('x1')
-        plt.ylabel('x2')
-        plt.xlim(0, 1)
-        plt.ylim(0, 1)
-        # stop or pause
-        if ctx.get('status') == 'Done':
-            plt.show(block=True)
-        else:
-            plt.pause(1 / 1000)
-
-    # Train the model
-    network.train(
-        train_set,
-        validation_set=train_set,
-        batch_size=pts.shape[0], epochs=10000, eta=2,
-        epoch_cb=callback, epoch_cb_stride=100
-    )
+plt.show(block=True)
