@@ -1,5 +1,5 @@
 import math
-from src.dataset import DatasetGenerator
+from src.datagen import DatasetGenerator
 from src.network import Network
 
 if __name__ == "__main__":
