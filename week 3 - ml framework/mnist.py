@@ -8,6 +8,11 @@ import mlx.core as mx
 
 from alpineml import Network, Optimizer
 from alpineml.function import Relu, Sigmoid, MeanSquareError, Tanh
+from alpineml.function.Elu import Elu
+from alpineml.function.Gelu import Gelu
+from alpineml.function.LeakyRelu import LeakyRelu
+from alpineml.function.Silu import Silu
+from alpineml.function.Swish import Swish
 from alpineml.layer import Linear, Activation
 
 
@@ -79,16 +84,16 @@ def fashion_mnist(save_dir="/tmp"):
         filename="fashion_mnist.pkl",
     )
 
-# train_x, train_y, test_x, test_y = map(mx.array, mnist()) # 97% max accuracy
-train_x, train_y, test_x, test_y = map(mx.array, fashion_mnist()) # 87% max accuracy
+train_x, train_y, test_x, test_y = map(mx.array, mnist()) # 97% max accuracy
+# train_x, train_y, test_x, test_y = map(mx.array, fashion_mnist()) # 87% max accuracy
 
 network = Network()
 network.add_layer(Linear(784, 320))
-network.add_layer(Activation(Relu()))
+network.add_layer(Activation(LeakyRelu()))
 network.add_layer(Linear(320, 160))
-network.add_layer(Activation(Relu()))
+network.add_layer(Activation(LeakyRelu()))
 network.add_layer(Linear(160, 80))
-network.add_layer(Activation(Relu()))
+network.add_layer(Activation(LeakyRelu()))
 network.add_layer(Linear(80, 10))
 network.add_layer(Activation(Sigmoid()))
 
