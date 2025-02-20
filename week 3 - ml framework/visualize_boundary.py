@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 
 from alpineml import Network, Optimizer
 from alpineml.layer import Linear, Activation
-from alpineml.function.loss.MeanSquareError import MeanSquareError
+from alpineml.function.loss.MSELoss import MSELoss
 from alpineml.function.activation import Sigmoid, Relu
 
 
@@ -40,7 +40,7 @@ network.add_layer(Activation(Sigmoid()))
 
 optimizer = Optimizer()
 optimizer.bind_network(network)
-optimizer.bind_loss_fn(MeanSquareError())
+optimizer.bind_loss_fn(MSELoss())
 optimizer.bind_learning_rate(0.5)
 
 pts = np.loadtxt('res/points.txt')
