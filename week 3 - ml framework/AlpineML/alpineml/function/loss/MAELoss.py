@@ -1,9 +1,10 @@
 from alpineml.function.Function import Function
+import mlx.core as mx
 
 
-class MeanSquareError(Function):
+class MAELoss(Function):
     def apply(self, y_pred, y_true):
-        return (y_pred - y_true)**2 / 2
+        return mx.abs(y_pred - y_true)
 
     def apply_derivative(self, y_pred, y_true):
-        return y_pred - y_true
+        return mx.where(y_pred >= 0, 1, -1)
