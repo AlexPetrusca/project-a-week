@@ -7,12 +7,8 @@ import numpy as np
 import mlx.core as mx
 
 from alpineml import Network, Optimizer
-from alpineml.function import Relu, Sigmoid, MeanSquareError, Tanh
-from alpineml.function.Elu import Elu
-from alpineml.function.Gelu import Gelu
-from alpineml.function.LeakyRelu import LeakyRelu
-from alpineml.function.Silu import Silu
-from alpineml.function.Swish import Swish
+from alpineml.function.loss import MeanSquareError
+from alpineml.function.activation import LeakyRelu, Sigmoid
 from alpineml.layer import Linear, Activation
 
 

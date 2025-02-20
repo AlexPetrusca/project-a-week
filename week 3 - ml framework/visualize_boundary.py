@@ -4,7 +4,9 @@ import matplotlib.pyplot as plt
 
 from alpineml import Network, Optimizer
 from alpineml.layer import Linear, Activation
-from alpineml.function import Sigmoid, Tanh, Relu, MeanSquareError
+from alpineml.function.loss.MeanSquareError import MeanSquareError
+from alpineml.function.activation import Sigmoid, Relu
+
 
 def plot_decision_boundary(points, labels):
     # Set min and max values and give it some padding.
@@ -39,13 +41,26 @@ network.add_layer(Activation(Sigmoid()))
 optimizer = Optimizer()
 optimizer.bind_network(network)
 optimizer.bind_loss_fn(MeanSquareError())
+optimizer.bind_learning_rate(0.5)
 
 pts = np.loadtxt('res/points.txt')
 X, Y = mx.array(pts[:, :2].T), mx.array(pts[:, 2:].T)
+
+def eval_model(epoch, model, X, Y):
+    Y_pred = model.forward(X)
+
+    loss = optimizer.loss_fn(Y, Y_pred)
+    mean_loss = mx.mean(mx.sum(loss, axis=0))
+
+    errors = mx.sum(mx.abs(Y - mx.round(Y_pred)), axis=0)
+    accuracy = mx.sum(errors == 0) / Y.shape[1]
+
+    print(f"Epoch {epoch}: Accuracy {accuracy:.3f}, Average Loss {mean_loss}")
+
 for i in range(50000):
     optimizer.train_network(X, Y)
     if i % 1000 == 0:
-        print(f"Epoch {i}")
+        eval_model(i, network, X, Y)
         plot_decision_boundary(X, Y)
 
 plt.show(block=True)
