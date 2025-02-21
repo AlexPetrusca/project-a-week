@@ -7,4 +7,4 @@ class MAELoss(Function):
         return mx.abs(y_pred - y_true)
 
     def apply_derivative(self, y_pred, y_true):
-        return mx.where(y_pred >= 0, 1, -1)
+        return mx.where(y_pred > y_true, 1, -1)
