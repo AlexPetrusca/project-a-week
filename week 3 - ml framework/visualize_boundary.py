@@ -40,7 +40,7 @@ network.add_layer(Activation(Sigmoid()))
 
 optimizer = Optimizer()
 optimizer.bind_network(network)
-optimizer.bind_loss_fn(BinaryCrossEntropyLoss())
+optimizer.bind_loss_fn(MSELoss())
 optimizer.bind_learning_rate(0.5)
 
 pts = np.loadtxt('res/points.txt')

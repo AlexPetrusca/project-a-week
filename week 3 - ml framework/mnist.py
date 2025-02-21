@@ -7,8 +7,8 @@ import numpy as np
 import mlx.core as mx
 
 from alpineml import Network, Optimizer
-from alpineml.function.loss import MSELoss
 from alpineml.function.activation import LeakyRelu, Sigmoid
+from alpineml.function.loss import MAELoss, CrossEntropyLoss
 from alpineml.layer import Linear, Activation
 
 
@@ -95,7 +95,7 @@ network.add_layer(Activation(Sigmoid()))
 
 optimizer = Optimizer()
 optimizer.bind_network(network)
-optimizer.bind_loss_fn(MSELoss())
+optimizer.bind_loss_fn(CrossEntropyLoss())
 optimizer.bind_learning_rate(1)
 
 def eval_model(epoch, model, X, Y):
