@@ -81,8 +81,8 @@ def fashion_mnist(save_dir="/tmp"):
         filename="fashion_mnist.pkl",
     )
 
-train_x, train_y, test_x, test_y = map(mx.array, mnist()) # 97% max accuracy
-# train_x, train_y, test_x, test_y = map(mx.array, fashion_mnist()) # 87% max accuracy
+# train_x, train_y, test_x, test_y = map(mx.array, mnist()) # 97% max accuracy
+train_x, train_y, test_x, test_y = map(mx.array, fashion_mnist()) # 87% max accuracy
 
 network = Network()
 network.add_layer(Linear(784, 320))
@@ -93,15 +93,13 @@ network.add_layer(Linear(160, 80))
 network.add_layer(Activation(LeakyRelu()))
 network.add_layer(Linear(80, 10))
 network.add_layer(Activation(LeakyRelu()))
-# network.add_layer(Activation(Sigmoid()))
-# network.add_layer(Softmax())
 
 optimizer = Optimizer()
-# optimizer.bind_loss_fn(MSELoss())
-# optimizer.bind_loss_fn(NLLLoss())
 optimizer.bind_loss_fn(CrossEntropyLoss())
 optimizer.bind_network(network)
 optimizer.set_learning_rate(0.1)
+optimizer.set_weight_decay(0.0005)
+optimizer.set_momentum(0.9)
 
 def eval_model(epoch, model, X, Y):
     Y_pred = model.forward(X)
@@ -122,7 +120,10 @@ MAX_EPOCHS = 5000
 for epoch in range(MAX_EPOCHS):
     optimizer.train_network(train_x, train_y)
     if epoch % 100 == 0:
-        eval_model(epoch, network, test_x, test_y)
+        eval_model(epoch, network, train_x, train_y)
+        eval_model(epoch, network, test_x, test_y) # DELETE ME
+        print() # DELETE ME
 
+eval_model(MAX_EPOCHS, network, train_x, train_y) # DELETE ME
 eval_model(MAX_EPOCHS, network, test_x, test_y)
 print("Finished")

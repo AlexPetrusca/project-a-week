@@ -15,5 +15,5 @@ class Softmax(Layer):
     def _backward(self, dx_out: mx.array) -> mx.array:
         return self.ctx.x_out * (dx_out - mx.sum(self.ctx.x_out * dx_out, axis=0, keepdims=True))
 
-    def _update(self, scale: float) -> None:
+    def _update(self, o) -> None:
         pass

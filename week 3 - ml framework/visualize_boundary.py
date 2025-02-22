@@ -44,7 +44,7 @@ optimizer = Optimizer()
 optimizer.bind_network(network)
 optimizer.bind_loss_fn(HuberLoss())
 # optimizer.bind_loss_fn(BinaryCrossEntropyLoss())
-optimizer.bind_learning_rate(0.5)
+optimizer.set_learning_rate(0.5)
 
 pts = np.loadtxt('res/points.txt')
 X, Y = mx.array(pts[:, :2].T), mx.array(pts[:, 2:].T)

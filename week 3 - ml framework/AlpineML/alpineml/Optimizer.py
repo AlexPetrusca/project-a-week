@@ -10,6 +10,8 @@ class Optimizer(ABC):
         self.network: Optional[Network] = None
         self.loss_fn: Optional[Function] = None
         self.eta: float = 1.0
+        self.momentum: float = 0.0
+        self.weight_decay: float = 0.0
 
     def train_network(self, x: mx.array, y: mx.array):
         # feed forward
@@ -20,7 +22,7 @@ class Optimizer(ABC):
             grad = layer.backward(grad)
         # update layers
         for layer in self.network.layers:
-            layer.update(self.eta / x.shape[1])
+            layer.update(self)
 
     def bind_network(self, network: Network) -> None:
         self.network = network
@@ -28,5 +30,11 @@ class Optimizer(ABC):
     def bind_loss_fn(self, loss_fn: Function) -> None:
         self.loss_fn = loss_fn
 
-    def bind_learning_rate(self, eta: float) -> None:
+    def set_learning_rate(self, eta: float) -> None:
         self.eta = eta
+
+    def set_weight_decay(self, weight_decay: float) -> None:
+        self.weight_decay = weight_decay
+
+    def set_momentum(self, momentum: float) -> None:
+        self.momentum = momentum
