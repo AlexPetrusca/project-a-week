@@ -3,8 +3,8 @@ import mlx.core as mx
 import matplotlib.pyplot as plt
 
 from alpineml import Network, Optimizer
-from alpineml.layer import Linear, Activation
-from alpineml.function.loss import MSELoss, BinaryCrossEntropyLoss
+from alpineml.layer import Linear, Activation, Softmax
+from alpineml.function.loss import MSELoss, BinaryCrossEntropyLoss, HuberLoss, NLLLoss
 from alpineml.function.activation import Sigmoid, Relu
 
 
@@ -31,7 +31,9 @@ def plot_decision_boundary(points, labels):
     plt.pause(0.0001)
 
 network = Network()
-network.add_layer(Linear(2, 16))
+network.add_layer(Linear(2, 8))
+network.add_layer(Activation(Relu()))
+network.add_layer(Linear(8, 16))
 network.add_layer(Activation(Relu()))
 network.add_layer(Linear(16, 8))
 network.add_layer(Activation(Relu()))
@@ -40,7 +42,8 @@ network.add_layer(Activation(Sigmoid()))
 
 optimizer = Optimizer()
 optimizer.bind_network(network)
-optimizer.bind_loss_fn(MSELoss())
+optimizer.bind_loss_fn(HuberLoss())
+# optimizer.bind_loss_fn(BinaryCrossEntropyLoss())
 optimizer.bind_learning_rate(0.5)
 
 pts = np.loadtxt('res/points.txt')
@@ -49,7 +52,7 @@ X, Y = mx.array(pts[:, :2].T), mx.array(pts[:, 2:].T)
 def eval_model(epoch, model, X, Y):
     Y_pred = model.forward(X)
 
-    loss = optimizer.loss_fn(Y, Y_pred)
+    loss = optimizer.loss_fn(Y_pred, Y)
     mean_loss = mx.mean(mx.sum(loss, axis=0))
 
     errors = mx.sum(mx.abs(Y - mx.round(Y_pred)), axis=0)

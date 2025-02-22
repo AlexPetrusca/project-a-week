@@ -8,8 +8,9 @@ import mlx.core as mx
 
 from alpineml import Network, Optimizer
 from alpineml.function.activation import LeakyRelu, Sigmoid
-from alpineml.function.loss import MAELoss, CrossEntropyLoss
-from alpineml.layer import Linear, Activation
+from alpineml.function.loss import MAELoss, NLLLoss, MSELoss, CrossEntropyLoss, BinaryCrossEntropyLoss
+from alpineml.layer import Linear, Activation, Softmax
+import alpineml.function.activation as F
 
 
 def mnist(
@@ -80,8 +81,8 @@ def fashion_mnist(save_dir="/tmp"):
         filename="fashion_mnist.pkl",
     )
 
-train_x, train_y, test_x, test_y = map(mx.array, mnist()) # 97% max accuracy
-# train_x, train_y, test_x, test_y = map(mx.array, fashion_mnist()) # 87% max accuracy
+# train_x, train_y, test_x, test_y = map(mx.array, mnist()) # 97% max accuracy
+train_x, train_y, test_x, test_y = map(mx.array, fashion_mnist()) # 87% max accuracy
 
 network = Network()
 network.add_layer(Linear(784, 320))
@@ -91,18 +92,25 @@ network.add_layer(Activation(LeakyRelu()))
 network.add_layer(Linear(160, 80))
 network.add_layer(Activation(LeakyRelu()))
 network.add_layer(Linear(80, 10))
-network.add_layer(Activation(Sigmoid()))
+network.add_layer(Activation(LeakyRelu()))
+# network.add_layer(Activation(Sigmoid()))
+# network.add_layer(Softmax())
 
 optimizer = Optimizer()
-optimizer.bind_network(network)
+# optimizer.bind_loss_fn(MSELoss())
+# optimizer.bind_loss_fn(NLLLoss())
 optimizer.bind_loss_fn(CrossEntropyLoss())
-optimizer.bind_learning_rate(1)
+optimizer.bind_network(network)
+optimizer.bind_learning_rate(0.1)
 
 def eval_model(epoch, model, X, Y):
     Y_pred = model.forward(X)
 
-    loss = optimizer.loss_fn(Y, Y_pred)
+    loss = optimizer.loss_fn(Y_pred, Y)
     mean_loss = mx.mean(mx.sum(loss, axis=0))
+
+    if isinstance(optimizer.loss_fn, CrossEntropyLoss):
+        Y_pred = F.Softmax().apply(Y_pred)
 
     errors = mx.sum(mx.abs(Y - mx.round(Y_pred)), axis=0)
     accuracy = mx.sum(errors == 0) / Y.shape[1]
