@@ -21,8 +21,8 @@ class Layer(ABC):
             self.ctx.dx_in = dx_in
         return dx_in
 
-    def update(self, scale: float) -> None:
-        self._update(scale)
+    def update(self, optimizer) -> None:
+        self._update(optimizer)
         self.ctx.reset()
 
     @abstractmethod
@@ -34,12 +34,13 @@ class Layer(ABC):
         pass
 
     @abstractmethod
-    def _update(self, scale: float) -> None:
+    def _update(self, optimizer) -> None:
         pass
 
 
-class LayerContext:
+class LayerContext(dict):
     def __init__(self):
+        super().__init__()
         self.x_in: Optional[mx.array] = None
         self.x_out: Optional[mx.array] = None
         self.dx_out: Optional[mx.array] = None
