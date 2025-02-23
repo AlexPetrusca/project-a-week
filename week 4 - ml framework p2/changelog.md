@@ -1,3 +1,5 @@
+# Week 4 Changelog
+
 - Added a bunch of Activation functions
   - Elu
   - Gelu
