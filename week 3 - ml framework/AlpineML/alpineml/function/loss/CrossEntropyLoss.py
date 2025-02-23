@@ -12,5 +12,5 @@ class CrossEntropyLoss(Function):
 
     def apply_derivative(self, y_pred, y_true, epsilon=1e-7):
         s = Softmax().apply(y_pred)
-        s = mx.clip(s, epsilon, 1 - epsilon) # numerical stability
+        # s = mx.clip(s, epsilon, 1 - epsilon) # numerical stability
         return s - y_true

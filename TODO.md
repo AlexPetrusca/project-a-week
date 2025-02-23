@@ -14,6 +14,9 @@
 - Implement RMSProp
 - Implement Adam
 
-### Visualization
-- Make plot of training vs validation loss/accuracy
-- Make plot showing sample input/label for image classification
+### Refactor
+- Remove the need to create instances of `Function`
+  - Each `Function` should be a singleton object (namespace)
+  - Each `Function` should have a static `apply` and `apply_derivative`
+  - Allow for currying of the Function
+  - A `Layer` will be defined as a `Function` with state (parameters)
