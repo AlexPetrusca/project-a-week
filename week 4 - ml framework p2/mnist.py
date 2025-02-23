@@ -9,7 +9,7 @@ import mlx.core as mx
 import matplotlib.pyplot as plt
 
 from alpineml import Network, Optimizer
-from alpineml.function.activation import LeakyRelu, Sigmoid
+from alpineml.function.activation import LeakyRelu, Sigmoid, Gelu
 from alpineml.function.loss import MAELoss, NLLLoss, MSELoss, CrossEntropyLoss, BinaryCrossEntropyLoss
 from alpineml.layer import Linear, Activation, Softmax
 import alpineml.function.activation as F
@@ -53,8 +53,8 @@ def mnist(
         mnist = pickle.load(f)
 
     def preproc(x):
-        # return x.astype(np.float32) / 255.0  # x: [0, 1]
-        return 2 * (x.astype(np.float32) / 255.0) - 1  # center input - x: [-1, 1]
+        return x.astype(np.float32) / 255.0  # x: [0, 255] --> [0, 1]
+        # return 2 * (x.astype(np.float32) / 255.0) - 1  # x: [0, 255] --> [-1, 1]
 
     def one_hot_encode(arr, max_value):
         arr = arr.astype(np.uint32)
@@ -91,19 +91,11 @@ def viz_sample_predictions(X, Y_true, Y_pred, label_map, rows=5, cols=5, figsize
     axes = axes.reshape(-1)  # flatten
 
     def sample_random():
-        def on_key(event):
-            print("Key pressed:", event.key)
-            if event.key == ' ':
-                sample_random()
-                fig.show()
-
-        fig.canvas.mpl_connect('key_press_event', on_key)
-
         for j in np.arange(0, rows * cols):
             i = np.random.randint(0, Y_true.shape[1])
 
             raw_sample = X[:, i].reshape(28, 28)
-            sample = np.array(255 * (raw_sample + 1) / 2)
+            sample = np.array(255 * raw_sample)
             image = Image.fromarray(sample)
 
             raw_label = mx.argmax(Y_true[:, i]).item()
@@ -117,8 +109,31 @@ def viz_sample_predictions(X, Y_true, Y_pred, label_map, rows=5, cols=5, figsize
             axes[j].axis('off')
             plt.subplots_adjust(wspace=1)
 
+    def on_key(event):
+        if event.key == ' ':
+            sample_random()
+            fig.show()
+
+    fig.canvas.mpl_connect('key_press_event', on_key)
+
     sample_random()
-    plt.show()
+
+def viz_history(history, figsize=(6, 4)):
+    plt.figure(figsize=figsize, num="Loss Curves")
+    plt.plot(history['epoch'], history['train_loss'], 'black', linewidth=2.0)
+    plt.plot(history['epoch'], history['test_loss'], 'green', linewidth=2.0)
+    plt.legend(['Training Loss', 'Validation Loss'], fontsize=14)
+    plt.xlabel('Epochs', fontsize=10)
+    plt.ylabel('Loss', fontsize=10)
+    plt.title('Loss vs Epoch', fontsize=12)
+
+    plt.figure(figsize=figsize, num="Accuracy Curves")
+    plt.plot(history['epoch'], history['train_accuracy'], 'black', linewidth=2.0)
+    plt.plot(history['epoch'], history['test_accuracy'], 'green', linewidth=2.0)
+    plt.legend(['Training Accuracy', 'Validation Accuracy'], fontsize=14)
+    plt.xlabel('Epochs', fontsize=10)
+    plt.ylabel('Accuracy', fontsize=10)
+    plt.title('Accuracy vs Epoch', fontsize=12)
 
 # Evaluate
 def eval_model(model, X, Y, epoch=None):
@@ -163,18 +178,32 @@ optimizer.set_learning_rate(0.1)
 optimizer.set_weight_decay(0.0005)
 optimizer.set_momentum(0.9)
 
-MAX_EPOCHS = 1000
+history = {"epoch": [], "train_loss": [], "test_loss": [], "train_accuracy": [], "test_accuracy": []}
+MAX_EPOCHS = 2500
 for epoch in range(MAX_EPOCHS):
     optimizer.train_network(train_x, train_y)
-    if epoch % 100 == 0:
-        eval_model(network, train_x, train_y, epoch=epoch)
-        eval_model(network, test_x, test_y, epoch=epoch) # DELETE ME
+    if epoch % 10 == 0:
+        _, train_accuracy, train_loss = eval_model(network, train_x, train_y, epoch=epoch)
+        _, test_accuracy, test_loss = eval_model(network, test_x, test_y, epoch=epoch) # DELETE ME
         print() # DELETE ME
+        history["epoch"].append(epoch)
+        history["train_loss"].append(train_loss)
+        history["test_loss"].append(test_loss)
+        history["train_accuracy"].append(train_accuracy)
+        history["test_accuracy"].append(test_accuracy)
 
-eval_model(network, train_x, train_y, epoch=MAX_EPOCHS) # DELETE ME
-eval_model(network, test_x, test_y, epoch=MAX_EPOCHS) # DELETE ME
+_, train_accuracy, train_loss = eval_model(network, train_x, train_y, epoch=MAX_EPOCHS) # DELETE ME
+_, test_accuracy, test_loss = eval_model(network, test_x, test_y, epoch=MAX_EPOCHS) # DELETE ME
+print()
+history["epoch"].append(MAX_EPOCHS)
+history["train_loss"].append(train_loss)
+history["test_loss"].append(test_loss)
+history["train_accuracy"].append(train_accuracy)
+history["test_accuracy"].append(test_accuracy)
 
 pred_y, _, _ = eval_model(network, test_x, test_y)
 print()
 
 viz_sample_predictions(test_x, test_y, pred_y, label_map)
+viz_history(history)
+plt.show()
