@@ -8,6 +8,7 @@
 - Implement Batch Normalization and Dropout Layer
 
 ### Improve SGD
+- Use mini batch SGD instead of full batch 
 - Implement Nesterov Momentum (NAG)
 - Implement AdaGrad
 - Implement RMSProp
