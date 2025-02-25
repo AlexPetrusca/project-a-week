@@ -36,9 +36,7 @@ def mnist(
         for name in filename[:2]:
             out_file = os.path.join("/tmp", name[1])
             with gzip.open(out_file, "rb") as f:
-                mnist[name[0]] = np.frombuffer(f.read(), np.uint8, offset=16).reshape(
-                    -1, 28 * 28
-                )
+                mnist[name[0]] = np.frombuffer(f.read(), np.uint8, offset=16).reshape(-1, 28 * 28)
         for name in filename[-2:]:
             out_file = os.path.join("/tmp", name[1])
             with gzip.open(out_file, "rb") as f:
@@ -71,10 +69,10 @@ def mnist(
     mnist["test_images"] = preproc(mnist["test_images"])
     mnist["test_labels"] = one_hot_encode(mnist["test_labels"], 9)
     return (
-        mnist["training_images"].T,
-        mnist["training_labels"].T,
-        mnist["test_images"].T,
-        mnist["test_labels"].T,
+        mnist["training_images"],
+        mnist["training_labels"],
+        mnist["test_images"],
+        mnist["test_labels"],
     )
 
 
@@ -92,16 +90,16 @@ def viz_sample_predictions(X, Y_true, Y_pred, label_map, rows=5, cols=5, figsize
 
     def sample_random():
         for j in np.arange(0, rows * cols):
-            i = np.random.randint(0, Y_true.shape[1])
+            i = np.random.randint(0, Y_true.shape[0])
 
-            raw_sample = X[:, i].reshape(28, 28)
+            raw_sample = X[i].reshape(28, 28)
             sample = np.array(255 * raw_sample)
             image = Image.fromarray(sample)
 
-            raw_label = mx.argmax(Y_true[:, i]).item()
+            raw_label = mx.argmax(Y_true[i]).item()
             label = label_map[raw_label]
 
-            raw_pred = mx.argmax(Y_pred[:, i]).item()
+            raw_pred = mx.argmax(Y_pred[i]).item()
             pred = label_map[raw_pred]
 
             axes[j].imshow(image)
@@ -140,13 +138,13 @@ def eval_model(model, X, Y, epoch=None):
     Y_pred = model.forward(X)
 
     loss = optimizer.loss_fn(Y_pred, Y)
-    mean_loss = mx.mean(mx.sum(loss, axis=0))
+    mean_loss = mx.mean(mx.sum(loss, axis=1))
 
     if isinstance(optimizer.loss_fn, CrossEntropyLoss):
         Y_pred = F.Softmax().apply(Y_pred)
 
-    errors = mx.sum(mx.abs(Y - mx.round(Y_pred)), axis=0)
-    accuracy = mx.sum(errors == 0) / Y.shape[1]
+    errors = mx.sum(mx.abs(Y - mx.round(Y_pred)), axis=1)
+    accuracy = mx.sum(errors == 0) / Y.shape[0]
 
     if epoch is not None:
         print(f"Epoch {epoch}: Accuracy {accuracy:.3f}, Average Loss {mean_loss}")

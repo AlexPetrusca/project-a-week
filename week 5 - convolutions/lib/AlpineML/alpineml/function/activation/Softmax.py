@@ -4,9 +4,9 @@ import mlx.core as mx
 
 class Softmax(Function):
     def apply(self, z, temperature=1.0):
-        z -= mx.max(z, axis=0, keepdims=True) # numerical stability
+        z -= mx.max(z, axis=1, keepdims=True) # numerical stability
         exp_z = mx.exp(z / temperature)
-        return exp_z / mx.sum(exp_z, axis=0, keepdims=True)
+        return exp_z / mx.sum(exp_z, axis=1, keepdims=True)
 
     # todo: this isn't even needed practically - the Softmax layer doesn't need this derivative during backpropagation.
     def apply_derivative(self, z):
