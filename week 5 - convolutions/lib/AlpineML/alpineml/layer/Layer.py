@@ -2,10 +2,20 @@ from abc import ABC, abstractmethod
 from typing import Optional
 import mlx.core as mx
 
+
 class Layer(ABC):
     def __init__(self):
         self.ctx: Layer.Context = Layer.Context()
         self.params: Layer.Parameters = Layer.Parameters()
+        self.input_shape: Optional[tuple] = None
+        self.output_shape: Optional[tuple] = None
+
+    def link(self, input_shape: tuple | int) -> None:
+        if isinstance(input_shape, int):
+            self.input_shape = (input_shape,)
+        else:
+            self.input_shape = input_shape
+        self._link()
 
     def forward(self, x_in: mx.array, save_ctx=True) -> mx.array:
         x_out = self._forward(x_in)
@@ -20,6 +30,10 @@ class Layer(ABC):
             self.ctx.dx_out = dx_out
             self.ctx.dx_in = dx_in
         return dx_in
+
+    @abstractmethod
+    def _link(self):
+        pass
 
     @abstractmethod
     def _forward(self, x_in: mx.array) -> mx.array:
