@@ -1,9 +1,8 @@
 # Todo
 
 ### Implement CNN
-- Don't pass the optimizer into the layer during parameter update
-- Implement Conv2d and MaxPool2d layers
 - Implement Flatten layer
+- Implement Conv2d and MaxPool2d layers
 - Implement Batch Normalization and Dropout Layer
 
 ### Improve SGD
