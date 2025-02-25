@@ -3,12 +3,13 @@ import mlx.core as mx
 
 
 class LeakyRelu(Function):
-    def __init__(self, alpha=0.01):
-        super().__init__()
-        self.alpha = alpha
+    @staticmethod
+    def apply(z, alpha=0.01):
+        return mx.maximum(alpha * z, z)
 
-    def apply(self, z):
-        return mx.maximum(self.alpha * z, z)
+    @staticmethod
+    def derivative(z, alpha=0.01):
+        return mx.where(z > 0, 1, alpha)
 
-    def apply_derivative(self, z):
-        return mx.where(z > 0, 1, self.alpha)
+
+leaky_relu = LeakyRelu()

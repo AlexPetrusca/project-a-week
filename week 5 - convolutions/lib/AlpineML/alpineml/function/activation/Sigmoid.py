@@ -3,9 +3,14 @@ import mlx.core as mx
 
 
 class Sigmoid(Function):
-    def apply(self, z):
+    @staticmethod
+    def apply(z):
         return mx.sigmoid(z)
 
-    def apply_derivative(self, z):
+    @staticmethod
+    def derivative(z):
         y = mx.sigmoid(z)
         return y * (1 - y)
+
+
+sigmoid = Sigmoid()

@@ -3,9 +3,14 @@ import mlx.core as mx
 
 
 class Silu(Function):
-    def apply(self, z):
+    @staticmethod
+    def apply(z):
         return z * mx.sigmoid(z)
 
-    def apply_derivative(self, z):
+    @staticmethod
+    def derivative(z):
         y = mx.sigmoid(z)
         return y + z * y * (1 - y)
+
+
+silu = Silu()

@@ -2,8 +2,13 @@ from alpineml.function.Function import Function
 
 
 class MSELoss(Function):
-    def apply(self, y_pred, y_true):
+    @staticmethod
+    def apply(y_pred, y_true):
         return (y_pred - y_true)**2 / 2
 
-    def apply_derivative(self, y_pred, y_true):
+    @staticmethod
+    def derivative(y_pred, y_true):
         return y_pred - y_true
+
+
+mse_loss = MSELoss()
