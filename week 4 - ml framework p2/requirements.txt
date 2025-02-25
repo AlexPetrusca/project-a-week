@@ -1,0 +1,5 @@
+mlx
+numpy
+matplotlib
+pillow
+./lib/AlpineML
