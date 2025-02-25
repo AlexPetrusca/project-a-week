@@ -10,10 +10,9 @@ import matplotlib.pyplot as plt
 
 from alpineml import Network
 from alpineml.optim import SGD
-from alpineml.function.activation import LeakyRelu, Sigmoid, Gelu
-from alpineml.function.loss import MAELoss, NLLLoss, MSELoss, CrossEntropyLoss, BinaryCrossEntropyLoss
-from alpineml.layer import Linear, Activation, Softmax
-import alpineml.function.activation as F
+from alpineml.function.activation import leaky_relu, softmax
+from alpineml.function.loss import CrossEntropyLoss, cross_entropy_loss
+from alpineml.layer import Linear, Activation
 
 
 # Load Dataset
@@ -142,7 +141,7 @@ def eval_model(model, X, Y, epoch=None):
     mean_loss = mx.mean(mx.sum(loss, axis=1))
 
     if isinstance(optimizer.loss_fn, CrossEntropyLoss):
-        Y_pred = F.Softmax().apply(Y_pred)
+        Y_pred = softmax(Y_pred)
 
     errors = mx.sum(mx.abs(Y - mx.round(Y_pred)), axis=1)
     accuracy = mx.sum(errors == 0) / Y.shape[0]
@@ -162,16 +161,16 @@ label_map = ["T-shirt/top", "Trouser", "Pullover", "Dress", "Coat", "Sandal", "S
 
 network = Network()
 network.add_layer(Linear(784, 320))
-network.add_layer(Activation(LeakyRelu()))
+network.add_layer(Activation(leaky_relu))
 network.add_layer(Linear(320, 160))
-network.add_layer(Activation(LeakyRelu()))
+network.add_layer(Activation(leaky_relu))
 network.add_layer(Linear(160, 80))
-network.add_layer(Activation(LeakyRelu()))
+network.add_layer(Activation(leaky_relu))
 network.add_layer(Linear(80, 10))
-network.add_layer(Activation(LeakyRelu()))
+network.add_layer(Activation(leaky_relu))
 
 optimizer = SGD(eta=0.1, momentum=0.9, weight_decay=0.0005)
-optimizer.bind_loss_fn(CrossEntropyLoss())
+optimizer.bind_loss_fn(cross_entropy_loss)
 optimizer.bind_network(network)
 
 history = {"epoch": [], "train_loss": [], "test_loss": [], "train_accuracy": [], "test_accuracy": []}

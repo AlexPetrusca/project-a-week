@@ -3,8 +3,13 @@ import mlx.core as mx
 
 
 class Relu(Function):
-    def apply(self, z):
+    @staticmethod
+    def apply(z):
         return mx.maximum(0, z)
 
-    def apply_derivative(self, z):
+    @staticmethod
+    def derivative(z):
         return mx.where(z > 0, 1, 0)
+
+
+relu = Relu()

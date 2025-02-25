@@ -3,8 +3,13 @@ import mlx.core as mx
 
 
 class Tanh(Function):
-    def apply(self, z):
+    @staticmethod
+    def apply(z):
         return mx.tanh(z)
 
-    def apply_derivative(self, z):
+    @staticmethod
+    def derivative(z):
         return 1 - mx.tanh(z)**2
+
+
+tanh = Tanh()

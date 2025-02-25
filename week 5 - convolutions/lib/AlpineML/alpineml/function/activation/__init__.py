@@ -1,9 +1,9 @@
-from alpineml.function.activation.Elu import Elu
-from alpineml.function.activation.Gelu import Gelu
-from alpineml.function.activation.LeakyRelu import LeakyRelu
-from alpineml.function.activation.Relu import Relu
-from alpineml.function.activation.Sigmoid import Sigmoid
-from alpineml.function.activation.Silu import Silu
-from alpineml.function.activation.Softmax import Softmax
-from alpineml.function.activation.Swish import Swish
-from alpineml.function.activation.Tanh import Tanh
+from alpineml.function.activation.Elu import Elu, elu
+from alpineml.function.activation.Gelu import Gelu, gelu
+from alpineml.function.activation.LeakyRelu import LeakyRelu, leaky_relu
+from alpineml.function.activation.Relu import Relu, relu
+from alpineml.function.activation.Sigmoid import Sigmoid, sigmoid
+from alpineml.function.activation.Silu import Silu, silu
+from alpineml.function.activation.Softmax import Softmax, softmax
+from alpineml.function.activation.Swish import Swish, swish
+from alpineml.function.activation.Tanh import Tanh, tanh

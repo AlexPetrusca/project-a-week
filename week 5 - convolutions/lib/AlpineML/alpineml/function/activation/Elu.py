@@ -3,12 +3,13 @@ import mlx.core as mx
 
 
 class Elu(Function):
-    def __init__(self, alpha=1):
-        super().__init__()
-        self.alpha = alpha
+    @staticmethod
+    def apply(z, alpha=1):
+        return mx.where(z > 0, z, alpha * (mx.exp(z) - 1))
 
-    def apply(self, z):
-        return mx.where(z > 0, z, self.alpha * (mx.exp(z) - 1))
+    @staticmethod
+    def derivative(z, alpha=1):
+        return mx.where(z > 0, 1, alpha * mx.exp(z))
 
-    def apply_derivative(self, z):
-        return mx.where(z > 0, 1, self.alpha * mx.exp(z))
+
+elu = Elu()
