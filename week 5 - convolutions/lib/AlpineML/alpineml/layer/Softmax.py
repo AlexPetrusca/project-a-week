@@ -14,7 +14,7 @@ class Softmax(Layer):
         return self.fn(x_in, self.temperature)
 
     def _backward(self, dx_out: mx.array) -> mx.array:
-        return self.ctx.x_out * (dx_out - mx.sum(self.ctx.x_out * dx_out, axis=0, keepdims=True))
+        return self.ctx.x_out * (dx_out - mx.sum(self.ctx.x_out * dx_out, axis=1, keepdims=True))
 
     def _update(self, o) -> None:
         pass
