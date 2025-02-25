@@ -8,7 +8,8 @@ import numpy as np
 import mlx.core as mx
 import matplotlib.pyplot as plt
 
-from alpineml import Network, Optimizer
+from alpineml import Network
+from alpineml.optim import SGD
 from alpineml.function.activation import LeakyRelu, Sigmoid, Gelu
 from alpineml.function.loss import MAELoss, NLLLoss, MSELoss, CrossEntropyLoss, BinaryCrossEntropyLoss
 from alpineml.layer import Linear, Activation, Softmax
@@ -169,17 +170,14 @@ network.add_layer(Activation(LeakyRelu()))
 network.add_layer(Linear(80, 10))
 network.add_layer(Activation(LeakyRelu()))
 
-optimizer = Optimizer()
+optimizer = SGD(eta=0.1, momentum=0.9, weight_decay=0.0005)
 optimizer.bind_loss_fn(CrossEntropyLoss())
 optimizer.bind_network(network)
-optimizer.set_learning_rate(0.1)
-optimizer.set_weight_decay(0.0005)
-optimizer.set_momentum(0.9)
 
 history = {"epoch": [], "train_loss": [], "test_loss": [], "train_accuracy": [], "test_accuracy": []}
 MAX_EPOCHS = 1000
 for epoch in range(MAX_EPOCHS):
-    optimizer.train_network(train_x, train_y)
+    optimizer.step(train_x, train_y)
     if epoch % 10 == 0:
         _, train_accuracy, train_loss = eval_model(network, train_x, train_y, epoch=epoch)
         _, test_accuracy, test_loss = eval_model(network, test_x, test_y, epoch=epoch) # DELETE ME

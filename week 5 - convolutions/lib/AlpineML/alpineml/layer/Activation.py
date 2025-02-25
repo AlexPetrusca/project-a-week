@@ -13,6 +13,3 @@ class Activation(Layer):
 
     def _backward(self, dx_out: mx.array) -> mx.array:
         return dx_out * self.fn.derivative(self.ctx.x_in)
-
-    def _update(self, o) -> None:
-        pass

@@ -3,9 +3,74 @@ from typing import Optional
 import mlx.core as mx
 
 
+class LayerContext(dict):
+    def __init__(self):
+        super().__init__()
+        self.x_in: Optional[mx.array] = None
+        self.x_out: Optional[mx.array] = None
+        self.dx_out: Optional[mx.array] = None
+        self.dx_in: Optional[mx.array] = None
+
+    def reset(self):
+        self.x_in = None
+        self.x_out = None
+        self.dx_out = None
+        self.dx_in = None
+
+
+class Parameter:
+    def __init__(self, name: str, value: mx.array = 0, gradient: mx.array = 0):
+        self.name: str = name
+        self.value: mx.array = value
+        self.grad: mx.array = gradient
+
+    def zero_grad(self):
+        self.grad = 0
+
+
+class Parameters:
+    def __init__(self):
+        super().__init__()
+        self._params: dict[str, Parameter] = {}
+
+    def __getitem__(self, key: str) -> Optional[mx.array]:
+        is_grad = key.startswith("d")
+        key = key[1:] if key.startswith("d") else key
+        if not self._params.get(key):
+            raise KeyError(f"Parameter {key} is not defined.")
+        return self._params[key].grad if is_grad else self._params[key].value
+
+    def __setitem__(self, key: str, val: mx.array) -> None:
+        is_grad = key.startswith("d")
+        key = key[1:] if key.startswith("d") else key
+        if not self._params.get(key):
+            if is_grad:
+                raise KeyError(f"Parameter {key} is not defined.")
+            else:
+                self._params[key] = Parameter(key)
+        if is_grad:
+            self._params[key].grad = val
+        else:
+            self._params[key].value = val
+
+    def __iter__(self):
+        return self._params.values().__iter__()
+
+    def __str__(self) -> str:
+        return str(self._params)
+
+    def __repr__(self) -> str:
+        return repr(self._params)
+
+    def zero_grad(self) -> None:
+        for param in self:
+            param.zero_grad()
+
+
 class Layer(ABC):
     def __init__(self):
         self.ctx: LayerContext = LayerContext()
+        self.params: Parameters = Parameters()
 
     def forward(self, x_in: mx.array, save_ctx=True) -> mx.array:
         x_out = self._forward(x_in)
@@ -21,10 +86,6 @@ class Layer(ABC):
             self.ctx.dx_in = dx_in
         return dx_in
 
-    def update(self, optimizer) -> None:
-        self._update(optimizer)
-        self.ctx.reset()
-
     @abstractmethod
     def _forward(self, x_in: mx.array) -> mx.array:
         pass
@@ -32,22 +93,3 @@ class Layer(ABC):
     @abstractmethod
     def _backward(self, dx_out: mx.array) -> mx.array:
         pass
-
-    @abstractmethod
-    def _update(self, optimizer) -> None:
-        pass
-
-
-class LayerContext(dict):
-    def __init__(self):
-        super().__init__()
-        self.x_in: Optional[mx.array] = None
-        self.x_out: Optional[mx.array] = None
-        self.dx_out: Optional[mx.array] = None
-        self.dx_in: Optional[mx.array] = None
-
-    def reset(self):
-        self.x_in = None
-        self.x_out = None
-        self.dx_out = None
-        self.dx_in = None
