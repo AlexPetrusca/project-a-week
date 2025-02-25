@@ -12,7 +12,7 @@ from alpineml import Network
 from alpineml.optim import SGD
 from alpineml.function.activation import leaky_relu, softmax
 from alpineml.function.loss import CrossEntropyLoss, cross_entropy_loss
-from alpineml.layer import Linear, Activation
+from alpineml.layer.core import Linear, Activation
 
 
 # Load Dataset
@@ -158,15 +158,14 @@ def eval_model(model, X, Y, epoch=None):
 train_x, train_y, test_x, test_y = map(mx.array, fashion_mnist()) # 87% max accuracy
 label_map = ["T-shirt/top", "Trouser", "Pullover", "Dress", "Coat", "Sandal", "Shirt", "Sneaker", "Bag", "Ankle boot"]
 
-
-network = Network()
-network.add_layer(Linear(784, 320))
+network = Network(input_shape=784)
+network.add_layer(Linear(320))
 network.add_layer(Activation(leaky_relu))
-network.add_layer(Linear(320, 160))
+network.add_layer(Linear(160))
 network.add_layer(Activation(leaky_relu))
-network.add_layer(Linear(160, 80))
+network.add_layer(Linear(80))
 network.add_layer(Activation(leaky_relu))
-network.add_layer(Linear(80, 10))
+network.add_layer(Linear(10))
 network.add_layer(Activation(leaky_relu))
 
 optimizer = SGD(eta=0.1, momentum=0.9, weight_decay=0.0005)

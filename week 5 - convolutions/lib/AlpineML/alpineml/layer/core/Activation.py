@@ -8,6 +8,9 @@ class Activation(Layer):
         super().__init__()
         self.fn: Function = fn
 
+    def _link(self):
+        self.output_shape = self.input_shape
+
     def _forward(self, x_in: mx.array) -> mx.array:
         return self.fn(x_in)
 
