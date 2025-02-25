@@ -3,6 +3,7 @@ import mlx.core as mx
 from alpineml.layer.Layer import Layer
 
 
+# todo: add Linear function?
 class Linear(Layer):
     def __init__(self, input_dims: int, output_dims: int):
         super().__init__()
