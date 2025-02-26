@@ -83,6 +83,7 @@ def fashion_mnist(save_dir="/tmp"):
         filename="fashion_mnist.pkl",
     )
 
+
 # Visualize
 def viz_sample_predictions(X, Y_true, Y_pred, label_map, rows=5, cols=5, figsize=(10, 10)):
     fig, axes = plt.subplots(rows, cols, figsize=figsize, num="Sample Predictions")
@@ -116,6 +117,7 @@ def viz_sample_predictions(X, Y_true, Y_pred, label_map, rows=5, cols=5, figsize
 
     sample_random()
 
+
 def viz_history(history, figsize=(6, 4)):
     plt.figure(figsize=figsize, num="Loss Curves")
     plt.plot(history['epoch'], history['train_loss'], 'black', linewidth=2.0)
@@ -132,6 +134,7 @@ def viz_history(history, figsize=(6, 4)):
     plt.xlabel('Epochs', fontsize=10)
     plt.ylabel('Accuracy', fontsize=10)
     plt.title('Accuracy vs Epoch', fontsize=12)
+
 
 # Evaluate
 def eval_model(model, X, Y, epoch=None):
@@ -151,6 +154,7 @@ def eval_model(model, X, Y, epoch=None):
     else:
         print(f"Accuracy {accuracy:.3f}, Average Loss {mean_loss}")
     return Y_pred, accuracy, mean_loss
+
 
 # train_x, train_y, test_x, test_y = map(mx.array, mnist()) # 97% max accuracy
 # label_map = ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine"]
