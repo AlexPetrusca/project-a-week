@@ -11,7 +11,7 @@ class MaxPool2d(Layer):
         else:
             self.kernel_size = kernel_size
         if stride is None:
-            self.stride = kernel_size
+            self.stride = self.kernel_size
         elif isinstance(stride, int):
             self.stride = (stride, stride)
         else:
@@ -62,6 +62,7 @@ class MaxPool2d(Layer):
         self.ctx['max_indices'] = max_indices
         return x_out
 
+    # todo: implement padding
     # todo: implement dilation
     def _backward(self, dx_out: mx.array) -> mx.array:
         dx_in = mx.zeros(self.ctx.x_in.shape)
@@ -70,15 +71,17 @@ class MaxPool2d(Layer):
         for y in range(h_out):
             for x in range(w_out):
                 h_start = y * self.stride[0]
+                h_end = min(h_start + self.kernel_size[0], self.input_shape[1])
                 w_start = x * self.stride[1]
+                w_end = min(w_start + self.kernel_size[1], self.input_shape[2])
 
                 # todo: mx.newaxis makes shit pretty hard to understand - ur resizing implicitly - revise
                 # a[..., i, mx.newaxis, ...] basically means select i but keep its dimension
                 indices = max_indices[:, :, y * w_out + x, mx.newaxis]
-                flat_mask = mx.where(indices == mx.arange(self.kernel_size[0] * self.kernel_size[1]), 1, 0)
-                mask = flat_mask.reshape(-1, self.input_shape[0], self.kernel_size[0], self.kernel_size[1])
+                flat_mask = mx.where(indices == mx.arange((h_end - h_start) * (w_end - w_start)), 1, 0)
+                mask = flat_mask.reshape(-1, self.input_shape[0], h_end - h_start, w_end - w_start)
                 grad = dx_out[:, :, y, mx.newaxis, x, mx.newaxis]
-                dx_in[:, :, h_start:h_start + self.kernel_size[0], w_start:w_start + self.kernel_size[1]] += grad * mask
+                dx_in[:, :, h_start:h_end, w_start:w_end] += grad * mask
 
         # # todo: passing None is incorrect (Bad LLM!)
         # # Remove padding from the gradient
