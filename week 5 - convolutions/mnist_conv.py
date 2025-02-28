@@ -13,7 +13,7 @@ from alpineml.layer.conv.Conv2d import Conv2d
 from alpineml.layer.conv.MaxPool2d import MaxPool2d
 from alpineml.layer.reshape import Flatten, Reshape
 from alpineml.optim import SGD
-from alpineml.function.activation import leaky_relu, softmax
+from alpineml.function.activation import leaky_relu, softmax, relu
 from alpineml.function.loss import CrossEntropyLoss, cross_entropy_loss
 from alpineml.layer.core import Linear, Activation
 
@@ -197,11 +197,11 @@ def train(train_x, train_y, epochs, batch_size=1, dilation=1, test_x=None, test_
     plt.show()
 
 
-# train_x, train_y, test_x, test_y = map(mx.array, mnist()) # 97% max accuracy
-# label_map = ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine"]
+train_x, train_y, test_x, test_y = map(mx.array, mnist()) # 97% max accuracy
+label_map = ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine"]
 
-train_x, train_y, test_x, test_y = map(mx.array, fashion_mnist()) # 87% max accuracy
-label_map = ["T-shirt/top", "Trouser", "Pullover", "Dress", "Coat", "Sandal", "Shirt", "Sneaker", "Bag", "Ankle boot"]
+# train_x, train_y, test_x, test_y = map(mx.array, fashion_mnist()) # 87% max accuracy
+# label_map = ["T-shirt/top", "Trouser", "Pullover", "Dress", "Coat", "Sandal", "Shirt", "Sneaker", "Bag", "Ankle boot"]
 
 network = Network(input_shape=(28, 28))
 
@@ -216,12 +216,16 @@ network = Network(input_shape=(28, 28))
 # network.add_layer(Activation(leaky_relu))
 
 network.add_layer(Reshape((1, 28, 28)))
-network.add_layer(Conv2d(out_channels=10, kernel_size=5))
-network.add_layer(MaxPool2d((2, 2)))
+# conv block 1
+network.add_layer(Conv2d(out_channels=8, kernel_size=3))
+network.add_layer(Activation(relu))
+network.add_layer(MaxPool2d(2))
+# # conv block 2
+# network.add_layer(Conv2d(out_channels=16, kernel_size=3))
+# network.add_layer(Activation(relu))
+# network.add_layer(MaxPool2d(2))
+# feed forward
 network.add_layer(Flatten())
-network.add_layer(Activation(leaky_relu))
-network.add_layer(Linear(256))
-network.add_layer(Activation(leaky_relu))
 network.add_layer(Linear(10))
 network.add_layer(Activation(leaky_relu))
 
