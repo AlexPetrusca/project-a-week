@@ -157,11 +157,49 @@ def eval_model(model, X, Y, epoch=None):
     return Y_pred, accuracy, mean_loss
 
 
-# train_x, train_y, test_x, test_y = map(mx.array, mnist()) # 97% max accuracy
-# label_map = ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine"]
+def train(train_x, train_y, epochs, batch_size=1, dilation=1, test_x=None, test_y=None, cb=None):
+    # batch input
+    train_x_dilated = mx.repeat(train_x, dilation, axis=0)
+    train_y_dilated = mx.repeat(train_y, dilation, axis=0)
+    train_x_batched = mx.split(train_x_dilated, int(train_x_dilated.shape[0] / batch_size), axis=0)
+    train_y_batched = mx.split(train_y_dilated, int(train_y_dilated.shape[0] / batch_size), axis=0)
 
-train_x, train_y, test_x, test_y = map(mx.array, fashion_mnist()) # 87% max accuracy
-label_map = ["T-shirt/top", "Trouser", "Pullover", "Dress", "Coat", "Sandal", "Shirt", "Sneaker", "Bag", "Ankle boot"]
+    history = {"epoch": [], "train_loss": [], "test_loss": [], "train_accuracy": [], "test_accuracy": []}
+    for epoch in range(1, epochs + 1):
+        for x_batch, y_batch in zip(train_x_batched, train_y_batched):
+            optimizer.step(x_batch, y_batch)
+
+        _, train_accuracy, train_loss = eval_model(network, train_x, train_y, epoch=epoch)
+        _, test_accuracy, test_loss = eval_model(network, test_x, test_y, epoch=epoch)
+        print()
+        history["epoch"].append(epoch)
+        history["train_loss"].append(train_loss)
+        history["test_loss"].append(test_loss)
+        history["train_accuracy"].append(train_accuracy)
+        history["test_accuracy"].append(test_accuracy)
+
+    _, train_accuracy, train_loss = eval_model(network, train_x, train_y, epoch=epochs)
+    _, test_accuracy, test_loss = eval_model(network, test_x, test_y, epoch=epochs)
+    print()
+    history["epoch"].append(epochs)
+    history["train_loss"].append(train_loss)
+    history["test_loss"].append(test_loss)
+    history["train_accuracy"].append(train_accuracy)
+    history["test_accuracy"].append(test_accuracy)
+
+    pred_y, _, _ = eval_model(network, test_x, test_y)
+    print()
+
+    viz_sample_predictions(test_x, test_y, pred_y, label_map)
+    viz_history(history)
+    plt.show()
+
+
+train_x, train_y, test_x, test_y = map(mx.array, mnist()) # 97% max accuracy
+label_map = ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine"]
+
+# train_x, train_y, test_x, test_y = map(mx.array, fashion_mnist()) # 87% max accuracy
+# label_map = ["T-shirt/top", "Trouser", "Pullover", "Dress", "Coat", "Sandal", "Shirt", "Sneaker", "Bag", "Ankle boot"]
 
 network = Network(input_shape=(28, 28))
 network.add_layer(Flatten())
@@ -178,32 +216,4 @@ optimizer = SGD(eta=0.1, momentum=0.9, weight_decay=0.0005)
 optimizer.bind_loss_fn(cross_entropy_loss)
 optimizer.bind_network(network)
 
-history = {"epoch": [], "train_loss": [], "test_loss": [], "train_accuracy": [], "test_accuracy": []}
-MAX_EPOCHS = 1000
-for epoch in range(MAX_EPOCHS):
-    optimizer.step(train_x, train_y)
-    if epoch % 10 == 0:
-        _, train_accuracy, train_loss = eval_model(network, train_x, train_y, epoch=epoch)
-        _, test_accuracy, test_loss = eval_model(network, test_x, test_y, epoch=epoch) # DELETE ME
-        print() # DELETE ME
-        history["epoch"].append(epoch)
-        history["train_loss"].append(train_loss)
-        history["test_loss"].append(test_loss)
-        history["train_accuracy"].append(train_accuracy)
-        history["test_accuracy"].append(test_accuracy)
-
-_, train_accuracy, train_loss = eval_model(network, train_x, train_y, epoch=MAX_EPOCHS) # DELETE ME
-_, test_accuracy, test_loss = eval_model(network, test_x, test_y, epoch=MAX_EPOCHS) # DELETE ME
-print()
-history["epoch"].append(MAX_EPOCHS)
-history["train_loss"].append(train_loss)
-history["test_loss"].append(test_loss)
-history["train_accuracy"].append(train_accuracy)
-history["test_accuracy"].append(test_accuracy)
-
-pred_y, _, _ = eval_model(network, test_x, test_y)
-print()
-
-viz_sample_predictions(test_x, test_y, pred_y, label_map)
-viz_history(history)
-plt.show()
+train(train_x, train_y, epochs=25, batch_size=1000, dilation=1, test_x=test_x, test_y=test_y)
