@@ -11,9 +11,9 @@ class Linear(Layer):
 
     def _link(self):
         # Same initialization that PyTorch uses
-        k = math.sqrt(1.0 / self.input_shape[0])
-        self.params["W"] = mx.random.uniform(-k, k, shape=(self.input_shape[0], self.output_shape[0]))
-        self.params["b"] = mx.random.uniform(-k, k, shape=(1, self.output_shape[0])) # todo: extra `1` dimension is useless
+        scale = math.sqrt(1.0 / self.input_shape[0])
+        self.params["W"] = mx.random.uniform(-scale, scale, shape=(self.input_shape[0], self.output_shape[0]))
+        self.params["b"] = mx.random.uniform(-scale, scale, shape=(1, self.output_shape[0])) # todo: extra `1` dimension is useless
 
     def _forward(self, x_in: mx.array) -> mx.array:
         return x_in @ self.params["W"] + self.params["b"]
