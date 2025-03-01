@@ -1,26 +1,37 @@
 import numpy as np
+import mlx.data as mx_data
 from mlx.data.datasets import load_mnist, load_cifar10, load_fashion_mnist
 
 
 class StaticBuffer:
     def __init__(self, data):
-        data_buffer = data.to_buffer()
-        self.data_buffer = data_buffer.batch(len(data_buffer))[0]
-        self.batched_data_buffer = None
+        if isinstance(data, mx_data.Stream):
+            raw_buffer = data.to_buffer()
+            self.buffer = raw_buffer.batch(len(raw_buffer))[0]
+            self.is_batched = False
+        else:
+            self.buffer = data
+            self.is_batched = True
 
     def batch(self, batch_size):
-        batched_images = np.split(self.data_buffer['image'], len(self) / batch_size)
-        batched_labels = np.split(self.data_buffer['label'], len(self) / batch_size)
+        if self.is_batched:
+            raise RuntimeError('Cannot batch a batched dataset')
 
-        self.batched_data_buffer = []
+        batched_images = np.split(self.buffer['image'], len(self) / batch_size)
+        batched_labels = np.split(self.buffer['label'], len(self) / batch_size)
+
+        batched_buffer = []
         for image, label in zip(batched_images, batched_labels):
-            self.batched_data_buffer.append({'image': image, 'label': label})
-        return self
+            batched_buffer.append({'image': image, 'label': label})
+        return StaticBuffer(batched_buffer)
 
     def shuffle(self):
-        permutation = np.random.permutation(len(self))
-        self.data_buffer['image'] = self.data_buffer['image'][permutation]
-        self.data_buffer['label'] = self.data_buffer['label'][permutation]
+        if self.is_batched:
+            np.random.shuffle(self.buffer)
+        else:
+            permutation = np.random.permutation(len(self))
+            self.buffer['image'] = self.buffer['image'][permutation]
+            self.buffer['label'] = self.buffer['label'][permutation]
         return self
 
     def to_buffer(self):
@@ -30,19 +41,25 @@ class StaticBuffer:
         return self  # do nothing
 
     def __iter__(self):
-        if self.batched_data_buffer is not None:
-            return self.batched_data_buffer.__iter__()
+        if self.is_batched:
+            return self.buffer.__iter__()
         else:
-            return [self.data_buffer].__iter__()
+            return [self.buffer].__iter__()
 
     def __len__(self):
-        return len(self.data_buffer['image'])
+        if self.is_batched:
+            return len(self.buffer)
+        else:
+            return len(self.buffer['image'])
 
     def __getitem__(self, index):
-        return {
-            'image': self.data_buffer['image'][index],
-            'label': self.data_buffer['label'][index]
-        }
+        if self.is_batched:
+            return {
+                'image': self.buffer['image'][index],
+                'label': self.buffer['label'][index]
+            }
+        else:
+            return self.buffer[index]
 
 
 def one_hot_encode(y):
