@@ -3,31 +3,46 @@ from mlx.data.datasets import load_mnist, load_cifar10, load_fashion_mnist
 
 
 class StaticBuffer:
-    def __init__(self, data_iter):
-        data_buffer = data_iter.to_buffer()
+    def __init__(self, data):
+        data_buffer = data.to_buffer()
         self.data_buffer = data_buffer.batch(len(data_buffer))[0]
-        self.batch_size = 0
+        self.batched_data_buffer = None
 
     def batch(self, batch_size):
-        self.batch_size = batch_size
-        images = self.data_buffer['image']
-        labels = self.data_buffer['label']
-        batched_images = np.split(images, len(images) / batch_size)
-        batched_labels = np.split(labels, len(labels) / batch_size)
-        self.data_buffer = []
+        batched_images = np.split(self.data_buffer['image'], len(self) / batch_size)
+        batched_labels = np.split(self.data_buffer['label'], len(self) / batch_size)
+
+        self.batched_data_buffer = []
         for image, label in zip(batched_images, batched_labels):
-            self.data_buffer.append({'image': image, 'label': label})
+            self.batched_data_buffer.append({'image': image, 'label': label})
         return self
+
+    def shuffle(self):
+        permutation = np.random.permutation(len(self))
+        self.data_buffer['image'] = self.data_buffer['image'][permutation]
+        self.data_buffer['label'] = self.data_buffer['label'][permutation]
+        return self
+
+    def to_buffer(self):
+        return self  # do nothing
 
     def reset(self):
         return self  # do nothing
 
     def __iter__(self):
-        if self.batch_size > 0:
-            return self.data_buffer.__iter__()
+        if self.batched_data_buffer is not None:
+            return self.batched_data_buffer.__iter__()
         else:
             return [self.data_buffer].__iter__()
 
+    def __len__(self):
+        return len(self.data_buffer['image'])
+
+    def __getitem__(self, index):
+        return {
+            'image': self.data_buffer['image'][index],
+            'label': self.data_buffer['label'][index]
+        }
 
 
 def one_hot_encode(y):
@@ -39,12 +54,13 @@ def one_hot_encode(y):
 def get_cifar10(root=None, static=False):
     tr = load_cifar10(root=root)
 
-    mean = np.array([0.485, 0.456, 0.406]).reshape((1, 1, 3))
-    std = np.array([0.229, 0.224, 0.225]).reshape((1, 1, 3))
+    # mean = np.array([0.485, 0.456, 0.406]).reshape((1, 1, 3))
+    # std = np.array([0.229, 0.224, 0.225]).reshape((1, 1, 3))
 
     def normalize(x):
         x = x.astype("float32") / 255.0
-        return (x - mean) / std
+        # return (x - mean) / std
+        return x
 
     tr_iter = (
         tr.shuffle()
@@ -95,7 +111,10 @@ def get_mnist(root=None, static=False):
         .pad("image", 1, 2, 2, 0.0)  # added
     )
 
-    return tr_iter, te_iter
+    if static:
+        return StaticBuffer(tr_iter), StaticBuffer(te_iter)
+    else:
+        return tr_iter, te_iter
 
 def get_fashion_mnist(root=None, static=False):
     tr = load_fashion_mnist(root=root, train=True)
@@ -122,4 +141,7 @@ def get_fashion_mnist(root=None, static=False):
         .pad("image", 1, 2, 2, 0.0)  # added
     )
 
-    return tr_iter, te_iter
+    if static:
+        return StaticBuffer(tr_iter), StaticBuffer(te_iter)
+    else:
+        return tr_iter, te_iter
