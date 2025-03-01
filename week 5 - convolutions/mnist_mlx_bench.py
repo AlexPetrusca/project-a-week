@@ -7,9 +7,9 @@ import matplotlib.pyplot as plt
 from alpineml import Network
 from alpineml.layer.conv.Conv2d import Conv2d
 from alpineml.layer.conv.MaxPool2d import MaxPool2d
-from alpineml.layer.reshape import Flatten, Reshape
+from alpineml.layer.reshape import Flatten, Reshape, Transpose
 from alpineml.optim import SGD
-from alpineml.function.activation import leaky_relu, softmax
+from alpineml.function.activation import leaky_relu, softmax, relu
 from alpineml.function.loss import CrossEntropyLoss, cross_entropy_loss
 from alpineml.layer.core import Linear, Activation
 from dataset import get_mnist, get_fashion_mnist, get_cifar10
@@ -154,16 +154,16 @@ def train(train_data, epochs, batch_size=1, test_data=None, cb=None):
     plt.show()
 
 
-train_data, test_data = get_mnist(static=True)  # 97% max accuracy
-label_map = ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine"]
+# train_data, test_data = get_mnist(static=True)  # 97% max accuracy
+# label_map = ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine"]
 
-# train_data, test_data = get_fashion_mnist(static=False)  # 87% max accuracy
+# train_data, test_data = get_fashion_mnist(static=True)  # 87% max accuracy
 # label_map = ["T-shirt/top", "Trouser", "Pullover", "Dress", "Coat", "Sandal", "Shirt", "Sneaker", "Bag", "Ankle boot"]
 
-# train_data, test_data = get_cifar10(static=False)
-# label_map = ["Airplane", "Automobile", "Bird", "Cat", "Deer", "Dog", "Frog", "Horse", "Ship", "Truck"]
+train_data, test_data = get_cifar10(static=True)
+label_map = ["Airplane", "Automobile", "Bird", "Cat", "Deer", "Dog", "Frog", "Horse", "Ship", "Truck"]
 
-network = Network(input_shape=(32, 32, 1))
+network = Network(input_shape=(32, 32, 3))
 
 # feed forward
 network.add_layer(Flatten())
@@ -179,8 +179,23 @@ network.add_layer(Activation(leaky_relu))
 network.add_layer(Linear(10))
 network.add_layer(Activation(leaky_relu))
 
+# network.add_layer(Transpose((2, 0, 1)))  # (H, W, C) --> (C, H, W)
+# # conv block 1
+# network.add_layer(Conv2d(out_channels=8, kernel_size=3))
+# network.add_layer(Activation(relu))
+# network.add_layer(MaxPool2d(2))
+# # conv block 2
+# network.add_layer(Conv2d(out_channels=16, kernel_size=3))
+# network.add_layer(Activation(relu))
+# network.add_layer(MaxPool2d(2))
+# # feed forward
+# network.add_layer(Flatten())
+# network.add_layer(Linear(256))
+# network.add_layer(Activation(leaky_relu))
+# network.add_layer(Linear(10))
+
 optimizer = SGD(eta=0.1, momentum=0.9, weight_decay=0.0005)
 optimizer.bind_loss_fn(cross_entropy_loss)
 optimizer.bind_network(network)
 
-train(train_data, epochs=10, batch_size=1000, test_data=test_data)
+train(train_data, epochs=100, batch_size=1000, test_data=test_data)
