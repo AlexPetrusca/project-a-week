@@ -165,34 +165,34 @@ label_map = ["Airplane", "Automobile", "Bird", "Cat", "Deer", "Dog", "Frog", "Ho
 
 network = Network(input_shape=(32, 32, 3))
 
-# feed forward
-network.add_layer(Flatten())
-network.add_layer(Activation(leaky_relu))
-network.add_layer(Linear(256))
-network.add_layer(Activation(leaky_relu))
-network.add_layer(Linear(256))
-network.add_layer(Activation(leaky_relu))
-network.add_layer(Linear(256))
-network.add_layer(Activation(leaky_relu))
-network.add_layer(Linear(128))
-network.add_layer(Activation(leaky_relu))
-network.add_layer(Linear(10))
-network.add_layer(Activation(leaky_relu))
-
-# network.add_layer(Transpose((2, 0, 1)))  # (H, W, C) --> (C, H, W)
-# # conv block 1
-# network.add_layer(Conv2d(out_channels=8, kernel_size=3))
-# network.add_layer(Activation(relu))
-# network.add_layer(MaxPool2d(2))
-# # conv block 2
-# network.add_layer(Conv2d(out_channels=16, kernel_size=3))
-# network.add_layer(Activation(relu))
-# network.add_layer(MaxPool2d(2))
 # # feed forward
 # network.add_layer(Flatten())
+# network.add_layer(Activation(leaky_relu))
 # network.add_layer(Linear(256))
 # network.add_layer(Activation(leaky_relu))
+# network.add_layer(Linear(256))
+# network.add_layer(Activation(leaky_relu))
+# network.add_layer(Linear(256))
+# network.add_layer(Activation(leaky_relu))
+# network.add_layer(Linear(128))
+# network.add_layer(Activation(leaky_relu))
 # network.add_layer(Linear(10))
+# network.add_layer(Activation(leaky_relu))
+
+network.add_layer(Transpose((2, 0, 1)))  # (H, W, C) --> (C, H, W)
+# conv block 1
+network.add_layer(Conv2d(out_channels=8, kernel_size=3))
+network.add_layer(Activation(relu))
+network.add_layer(MaxPool2d(2))
+# conv block 2
+network.add_layer(Conv2d(out_channels=16, kernel_size=3))
+network.add_layer(Activation(relu))
+network.add_layer(MaxPool2d(2))
+# feed forward
+network.add_layer(Flatten())
+network.add_layer(Linear(256))
+network.add_layer(Activation(leaky_relu))
+network.add_layer(Linear(10))
 
 optimizer = SGD(eta=0.1, momentum=0.9, weight_decay=0.0005)
 optimizer.bind_loss_fn(cross_entropy_loss)
