@@ -45,34 +45,34 @@ class Conv2d(Layer):
 
     # todo: implement dilation
     def _forward(self, x_in: mx.array) -> mx.array:
-        # x_out = mx.zeros((x_in.shape[0], *self.output_shape))
-        #
-        # # Pad the input
-        # x_in_padded = mx.pad(x_in, ((0, 0), (0, 0), (self.padding[0], self.padding[0]), (self.padding[1], self.padding[1])))
-        #
-        # h_out, w_out = self.output_shape[1:]
-        # for y in range(h_out):
-        #     for x in range(w_out):
-        #         h_start = y * self.stride[0]
-        #         h_end = h_start + self.kernel_size[0]
-        #         w_start = x * self.stride[1]
-        #         w_end = w_start + self.kernel_size[1]
-        #
-        #         # convolve
-        #         window = x_in_padded[:, :, h_start:h_end, w_start:w_end]
-        #         for c_out in range(self.out_channels):
-        #             kernel = self.params["W"][c_out]
-        #             x_out[:, c_out:c_out + 1, y, x] += mx.sum(window * kernel, axis=(2, 3))
-        #
-        # x_out += self.params["b"]
-        # return x_out
+        x_out = mx.zeros((x_in.shape[0], *self.output_shape))
 
-        x_in = x_in.transpose((0, 2, 3, 1))  # (N, C_in, H, W) --> (N, H, W, C_in)
-        W = self.params['W'].transpose((0, 2, 3, 1)) # (C_out, C_in, H, W) --> (C_out, H, W, C_in)
-        x_out = mx.conv2d(x_in, W, stride=self.stride, padding=self.padding, dilation=self.dilation)
-        x_out = x_out.transpose((0, 3, 1, 2)) # (N, H, W, C_out) --> (N, C_out, H, W)
+        # Pad the input
+        x_in_padded = mx.pad(x_in, ((0, 0), (0, 0), (self.padding[0], self.padding[0]), (self.padding[1], self.padding[1])))
+
+        h_out, w_out = self.output_shape[1:]
+        for y in range(h_out):
+            for x in range(w_out):
+                h_start = y * self.stride[0]
+                h_end = h_start + self.kernel_size[0]
+                w_start = x * self.stride[1]
+                w_end = w_start + self.kernel_size[1]
+
+                # convolve
+                window = x_in_padded[:, :, h_start:h_end, w_start:w_end]
+                for c_out in range(self.out_channels):
+                    kernel = self.params["W"][c_out]
+                    x_out[:, c_out, y, x] += mx.sum(window * kernel, axis=(1, 2, 3))
+
         x_out += self.params["b"]
         return x_out
+
+        # x_in = x_in.transpose((0, 2, 3, 1))  # (N, C_in, H, W) --> (N, H, W, C_in)
+        # W = self.params['W'].transpose((0, 2, 3, 1)) # (C_out, C_in, H, W) --> (C_out, H, W, C_in)
+        # x_out = mx.conv2d(x_in, W, stride=self.stride, padding=self.padding, dilation=self.dilation)
+        # x_out = x_out.transpose((0, 3, 1, 2)) # (N, H, W, C_out) --> (N, C_out, H, W)
+        # x_out += self.params["b"]
+        # return x_out
 
     # todo: implement padding
     # todo: implement dilation
@@ -108,8 +108,7 @@ class Conv2d(Layer):
         # todo: doesnt work...
         # Define a function that applies convolution and returns a scalar
         def conv2d_fn(input_data, weight, stride=self.stride, padding=self.padding, dilation=self.dilation):
-            # return mx.conv2d(input_data, weight, stride, padding, dilation).sum()
-            return mx.conv2d(input_data, weight, stride, padding, dilation).mean()
+            return mx.sum(mx.conv2d(input_data, weight, stride, padding, dilation).transpose((0, 3, 1, 2)) * dx_out)
         # Compute gradient of convolution output w.r.t. the weights
         x_in = self.ctx.x_in.transpose((0, 2, 3, 1))  # (N, C_in, H, W) --> (N, H, W, C_in)
         W = self.params['W'].transpose((0, 2, 3, 1))  # (C_out, C_in, H, W) --> (C_out, H, W, C_in)
