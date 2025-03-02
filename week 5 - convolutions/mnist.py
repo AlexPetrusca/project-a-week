@@ -2,12 +2,11 @@ from PIL import Image
 
 import numpy as np
 import mlx.core as mx
+import mlx.nn as nn
 import matplotlib.pyplot as plt
 
 from alpineml import Network
-from alpineml.layer import MyLinear, MyConv2d, MyMaxPool2d
-from alpineml.layer.conv.Conv2d import Conv2d
-from alpineml.layer.conv.MaxPool2d import MaxPool2d
+from alpineml.layer import MyLinear, MyConv2d, MLX
 from alpineml.layer.reshape import Flatten, Reshape, Transpose
 from alpineml.optim import SGD
 from alpineml.function.activation import leaky_relu, softmax, relu
@@ -183,15 +182,15 @@ network = Network(input_shape=(32, 32, 3))
 # conv block 1
 network.add_layer(MyConv2d(out_channels=96, kernel_size=3))
 network.add_layer(Activation(leaky_relu))
-network.add_layer(MyMaxPool2d(2))
+network.add_layer(MLX(nn.MaxPool2d(2)))
 # conv block 2
 network.add_layer(MyConv2d(out_channels=256, kernel_size=3))
 network.add_layer(Activation(leaky_relu))
-network.add_layer(MyMaxPool2d(2))
+network.add_layer(MLX(nn.MaxPool2d(2)))
 # conv block 3
 network.add_layer(MyConv2d(out_channels=384, kernel_size=3))
 network.add_layer(Activation(leaky_relu))
-network.add_layer(MyMaxPool2d(2))
+network.add_layer(MLX(nn.MaxPool2d(2)))
 # feed forward
 network.add_layer(Flatten())
 network.add_layer(Linear(1024))
