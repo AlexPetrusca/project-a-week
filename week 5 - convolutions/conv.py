@@ -6,7 +6,7 @@ import mlx.nn as nn
 import matplotlib.pyplot as plt
 
 from alpineml import Network
-from alpineml.layer import MyLinear, MyConv2d, MLX
+from alpineml.layer.shim import MLX
 from alpineml.layer.reshape import Flatten, Reshape, Transpose
 from alpineml.optim import SGD
 from alpineml.function.activation import leaky_relu, softmax, relu
@@ -154,13 +154,13 @@ def train(train_data, epochs, batch_size=1, test_data=None, cb=None):
     plt.show()
 
 
-# train_data, test_data = get_mnist(static=True)  # 97% max accuracy
+# train_data, test_data = get_mnist(static=False)  # 97% MLP / 99.4% CNN
 # label_map = ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine"]
 
-# train_data, test_data = get_fashion_mnist(static=True)  # 87% max accuracy
+# train_data, test_data = get_fashion_mnist(static=False)  # 87% MLP / 92.7% CNN
 # label_map = ["T-shirt/top", "Trouser", "Pullover", "Dress", "Coat", "Sandal", "Shirt", "Sneaker", "Bag", "Ankle boot"]
 
-train_data, test_data = get_cifar10(static=False) #
+train_data, test_data = get_cifar10(static=False) # 41% MLP / 85.6% CNN
 label_map = ["Airplane", "Automobile", "Bird", "Cat", "Deer", "Dog", "Frog", "Horse", "Ship", "Truck"]
 
 network = Network(input_shape=(32, 32, 3))
@@ -168,32 +168,30 @@ network = Network(input_shape=(32, 32, 3))
 # # feed forward
 # network.add_layer(Flatten())
 # network.add_layer(Activation(leaky_relu))
-# network.add_layer(MyLinear(256))
+# network.add_layer(Linear(256))
 # network.add_layer(Activation(leaky_relu))
-# network.add_layer(MyLinear(256))
+# network.add_layer(Linear(256))
 # network.add_layer(Activation(leaky_relu))
-# network.add_layer(MyLinear(256))
+# network.add_layer(Linear(256))
 # network.add_layer(Activation(leaky_relu))
-# network.add_layer(MyLinear(128))
+# network.add_layer(Linear(128))
 # network.add_layer(Activation(leaky_relu))
-# network.add_layer(MyLinear(10))
+# network.add_layer(Linear(10))
 # network.add_layer(Activation(leaky_relu))
 
 # conv block 1
-network.add_layer(MyConv2d(out_channels=96, kernel_size=3))
+network.add_layer(MLX(nn.Conv2d(in_channels=3, out_channels=96, kernel_size=3)))
 network.add_layer(Activation(leaky_relu))
 network.add_layer(MLX(nn.MaxPool2d(2)))
 # conv block 2
-network.add_layer(MyConv2d(out_channels=256, kernel_size=3))
+network.add_layer(MLX(nn.Conv2d(in_channels=96, out_channels=256, kernel_size=3)))
 network.add_layer(Activation(leaky_relu))
 network.add_layer(MLX(nn.MaxPool2d(2)))
 # conv block 3
-network.add_layer(MyConv2d(out_channels=384, kernel_size=3))
+network.add_layer(MLX(nn.Conv2d(in_channels=256, out_channels=384, kernel_size=3)))
 network.add_layer(Activation(leaky_relu))
 network.add_layer(MLX(nn.MaxPool2d(2)))
 # feed forward
-network.add_layer(Flatten())
-network.add_layer(Linear(1024))
 network.add_layer(Flatten())
 network.add_layer(Linear(1024))
 network.add_layer(Activation(leaky_relu))
@@ -203,4 +201,4 @@ optimizer = SGD(eta=0.05, momentum=0.9, weight_decay=0.0005)
 optimizer.bind_loss_fn(cross_entropy_loss)
 optimizer.bind_network(network)
 
-train(train_data, epochs=100, batch_size=1000, test_data=test_data)
+train(train_data, epochs=500, batch_size=1000, test_data=test_data)
