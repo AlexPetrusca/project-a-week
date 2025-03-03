@@ -1,13 +1,12 @@
-import inspect
 from mlx import core as mx
 from mlx import nn as nn
 from alpineml.layer import Layer
 
 
 class MLX(Layer):
-    def __init__(self, layer):
+    def __init__(self, layer: nn.Module):
         super().__init__()
-        self.layer = layer
+        self.layer: nn.Module = layer
 
         def loss_fn(x_in, dx_out):
             return mx.sum(self.layer(x_in) * dx_out)

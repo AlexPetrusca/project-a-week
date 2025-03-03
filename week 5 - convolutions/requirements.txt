@@ -1,4 +1,5 @@
 mlx
+torch
 numpy
 matplotlib
 pillow

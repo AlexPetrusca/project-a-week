@@ -1,12 +1,13 @@
 from PIL import Image
 
+import torch as tc
 import numpy as np
 import mlx.core as mx
 import mlx.nn as nn
 import matplotlib.pyplot as plt
 
 from alpineml import Network
-from alpineml.layer.shim import MLX
+from alpineml.layer.shim import MLX, PyTorch
 from alpineml.layer.reshape import Flatten, Reshape, Transpose
 from alpineml.optim import SGD
 from alpineml.function.activation import leaky_relu, softmax, relu
