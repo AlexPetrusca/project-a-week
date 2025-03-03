@@ -100,6 +100,12 @@ class Layer(ABC):
         def __repr__(self) -> str:
             return repr(self._params)
 
+        def __len__(self) -> int:
+            return len(self._params)
+
+        def items(self):
+            return self._params.items()
+
         def zero_grad(self) -> None:
             for param in self:
                 param.zero_grad()
