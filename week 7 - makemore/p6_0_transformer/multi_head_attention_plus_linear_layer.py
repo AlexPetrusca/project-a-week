@@ -4,20 +4,6 @@
 #   - now they need to "think" on that data individually
 #       - i.e. compute in the Linear followed by Relu
 
-# We can stack these layers now:
-#   - attention block 1
-#       - MultiHeadAttention 1
-#       - Linear 1
-#       - Relu 1
-#   - attention block 2
-#       - MultiHeadAttention 2
-#       - Linear 2
-#       - Relu 2
-#   - ...
-
-# communication/computation sandwiches:
-#   - communication -> computation -> communication -> computation -> ...
-
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
