@@ -1,4 +1,22 @@
-# todo: implement (this is just a copy of multi_head_attention.py)
+# The way to think about this is that:
+#   - self-attention is the communication between the tokens
+#   - then once they've gathered all the data
+#   - now they need to "think" on that data individually
+#       - i.e. compute in the Linear followed by Relu
+
+# We can stack these layers now:
+#   - attention block 1
+#       - MultiHeadAttention 1
+#       - Linear 1
+#       - Relu 1
+#   - attention block 2
+#       - MultiHeadAttention 2
+#       - Linear 2
+#       - Relu 2
+#   - ...
+
+# communication/computation sandwiches:
+#   - communication -> computation -> communication -> computation -> ...
 
 import torch
 import torch.nn as nn
@@ -94,6 +112,33 @@ class MultiHeadAttention(nn.Module):
     def forward(self, x):
         return torch.cat([h(x) for h in self.heads], dim=-1)  # concatenate over the channel dimension (B, T, C)
 
+class FeedForward(nn.Module):
+    """ a simple linear layer followed by a non-linearity """
+    def __init__(self, n_embd):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(n_embd, n_embd),
+            nn.ReLU(),
+        )
+
+    def forward(self, x):
+        return self.net(x)
+
+class TransformerBlock(nn.Module):
+    """ Transformer block: communication followed by computation """
+
+    def __init__(self, n_embd, n_head):
+        # n_embd: embedding dimension, n_head: the number of heads we'd like
+        super().__init__()
+        head_size = n_embd // n_head
+        self.sa = MultiHeadAttention(n_head, head_size)
+        self.ffwd = FeedForward(n_embd)
+
+    def forward(self, x):
+        x = self.sa(x)
+        x = self.ffwd(x)
+        return x
+
 # super simple bigram model
 class BigramLanguageModel(nn.Module):
 
@@ -102,7 +147,11 @@ class BigramLanguageModel(nn.Module):
         # each token directly reads off the logits for the next token from a lookup table
         self.token_embedding_table = nn.Embedding(vocab_size, n_embd)  # token information (in token embedding space)
         self.position_embedding_table = nn.Embedding(block_size, n_embd)  # positional information (in position embedding space)
-        self.sa_heads = MultiHeadAttention(4, n_embd // 4)  # i.e. 4 heads of 8-dimensional self-attention
+        self.blocks = nn.Sequential(
+            TransformerBlock(n_embd, n_head=4),
+            TransformerBlock(n_embd, n_head=4),
+            TransformerBlock(n_embd, n_head=4),
+        )
         self.lm_head = nn.Linear(n_embd, vocab_size)  # embedding space --> vocabulary space
 
     def forward(self, idx, targets=None):
@@ -112,7 +161,7 @@ class BigramLanguageModel(nn.Module):
         tok_emb = self.token_embedding_table(idx) # (B, T, C)
         pos_emb = self.position_embedding_table(torch.arange(T)) # (T, C)
         x = tok_emb + pos_emb # (B, T, C)
-        x = self.sa_heads(x)  # apply one head of self-attention. (B, T, C)
+        x = self.blocks(x) # (B, T, C)
         logits = self.lm_head(x) # (B, T, vocab_size)
 
         if targets is None:
