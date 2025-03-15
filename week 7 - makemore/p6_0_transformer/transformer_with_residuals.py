@@ -20,6 +20,9 @@
 
 # This network ends up getting pretty deep, hence "deep learning".
 # Without residual connections and normalization layers, the network is unstable and hard to train.
+#   - this happened to me: train loss went from 4.1824 --> 2.4977 --> 3.3115
+# Just adding the residual connections stabilizes the network.
+#   - train loss with residual connections: 4.6184 --> 2.4904 --> 2.1534 --> 2.0878
 
 import torch
 import torch.nn as nn
@@ -110,22 +113,28 @@ class MultiHeadAttention(nn.Module):
 
     def __init__(self, num_heads, head_size):
         super().__init__()
-        self.heads = nn.ModuleList([Head(head_size) for _ in range(num_heads)])
+        self.heads = nn.ModuleList([Head(head_size) for _ in range(num_heads)])  # heads of attention
+        self.proj = nn.Linear(n_embd, n_embd)  # "projection back into the residual pathway"
 
     def forward(self, x):
-        return torch.cat([h(x) for h in self.heads], dim=-1)  # concatenate over the channel dimension (B, T, C)
+        out = torch.cat([h(x) for h in self.heads], dim=-1)  # concatenate over the channel dimension (B, T, C)
+        out = self.proj(out)  # "project back into the residual pathway"
+        return out
 
 class FeedForward(nn.Module):
     """ a simple linear layer followed by a non-linearity """
     def __init__(self, n_embd):
         super().__init__()
         self.net = nn.Sequential(
-            nn.Linear(n_embd, n_embd),
+            nn.Linear(n_embd, 4 * n_embd),
             nn.ReLU(),
         )
+        self.proj = nn.Linear(4 * n_embd, n_embd)  # "project back into the residual pathway"
 
     def forward(self, x):
-        return self.net(x)
+        out = self.net(x)
+        out = self.proj(out)  # "project back into the residual pathway"
+        return out
 
 class TransformerBlock(nn.Module):
     """ Transformer block: communication followed by computation """
@@ -138,8 +147,9 @@ class TransformerBlock(nn.Module):
         self.ffwd = FeedForward(n_embd)
 
     def forward(self, x):
-        x = self.sa(x)
-        x = self.ffwd(x)
+        # `x = x + <some computation>` is the residual pathway...
+        x = x + self.sa(x)  #
+        x = x + self.ffwd(x)
         return x
 
 # super simple bigram model
@@ -221,35 +231,3 @@ for iter in range(max_iters):
 # generate from the model
 context = torch.zeros((1, 1), dtype=torch.long)
 print(decode(m.generate(context, max_new_tokens=500)[0].tolist()))
-
-# --- Training ---
-# step 0: train loss 4.1824, val loss 4.1804
-# step 300: train loss 3.1002, val loss 3.1144
-# step 600: train loss 2.8865, val loss 2.8885
-# step 900: train loss 2.7758, val loss 2.7663
-# step 1200: train loss 2.6832, val loss 2.6759
-# step 1500: train loss 2.5962, val loss 2.5959
-# step 1800: train loss 2.5483, val loss 2.5352
-# step 2100: train loss 2.4940, val loss 2.4933
-# step 2400: train loss 2.4669, val loss 2.4750
-# step 2700: train loss 2.4518, val loss 2.4577
-
-# --- Generation ---
-# Se gtheded bacarhs,
-# Ga fe ghet're
-# the hit fourl mrricre If
-# EUXN:
-# Rherer met
-# Thew ses ce fis.
-#
-#  an fat faeceuro wine bo pila ye powe I ape to,
-# ar fomenelnl Tith hrie sed bombou whount If she gint to mise yo wid ony
-# bomlled fir pedal wow thar o hiudt sysan woo Roo-r'le to ton, thhe tas nrilufe at;
-# en gin I jpacargf cher,
-# Ann inqolund af stonf' corceror.
-#
-# Wiopmriaeorg dow he ot:
-# An, thhof fot eid band grapar bieo sce; for pore boic,
-# I o tar kappe cel nas wak o lic fouge so On garemr.
-#
-# MEIICCLOUTESN
