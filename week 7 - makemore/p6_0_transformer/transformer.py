@@ -135,7 +135,7 @@ class TransformerBlock(nn.Module):
         super().__init__()
         head_size = n_embd // n_head
         self.sa = MultiHeadAttention(n_head, head_size)
-        self.ffwd = FeedForward(n_embd)
+        self.ffwd = FeedForward(n_embd)   # feed forward per token (cuz applies only to last dimension)
 
     def forward(self, x):
         x = self.sa(x)

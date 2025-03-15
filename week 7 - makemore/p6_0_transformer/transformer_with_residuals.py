@@ -20,9 +20,7 @@
 
 # This network ends up getting pretty deep, hence "deep learning".
 # Without residual connections and normalization layers, the network is unstable and hard to train.
-#   - this happened to me: train loss went from 4.1824 --> 2.4977 --> 3.3115
 # Just adding the residual connections stabilizes the network.
-#   - train loss with residual connections: 4.6184 --> 2.4904 --> 2.1534 --> 2.0878
 
 import torch
 import torch.nn as nn
@@ -144,12 +142,12 @@ class TransformerBlock(nn.Module):
         super().__init__()
         head_size = n_embd // n_head
         self.sa = MultiHeadAttention(n_head, head_size)
-        self.ffwd = FeedForward(n_embd)
+        self.ffwd = FeedForward(n_embd)  # feed forward per token (cuz applies only to last dimension)
 
     def forward(self, x):
         # `x = x + <some computation>` is the residual pathway...
-        x = x + self.sa(x)  #
-        x = x + self.ffwd(x)
+        x = x + self.sa(x)  # MultiHeadAttention now also "projects back into the residual pathway"
+        x = x + self.ffwd(x)  # FeedForward now also "projects back into the residual pathway"
         return x
 
 # super simple bigram model
@@ -231,3 +229,36 @@ for iter in range(max_iters):
 # generate from the model
 context = torch.zeros((1, 1), dtype=torch.long)
 print(decode(m.generate(context, max_new_tokens=500)[0].tolist()))
+
+# --- Training ---
+# step 0: train loss 4.6184, val loss 4.6311
+# step 300: train loss 2.4903, val loss 2.5006
+# step 600: train loss 2.3519, val loss 2.3734
+# step 900: train loss 2.2587, val loss 2.2893
+# step 1200: train loss 2.2003, val loss 2.2408
+# step 1500: train loss 2.1716, val loss 2.2105
+# step 1800: train loss 2.1530, val loss 2.1753
+# step 2100: train loss 2.1141, val loss 2.1546
+# step 2400: train loss 2.0966, val loss 2.1645
+# step 2700: train loss 2.0906, val loss 2.1608
+
+# --- Generation ---
+# tivens,
+# Ga fore?--'Test and to thou marwore af
+# Endure. Wartomen
+# y purselr'd fistan an fathines, For the be splace apwour Rapents, art,--
+#
+# PAnd TERY
+# ELITHHARUNTHRONTAUTIU: If shought be hes, by fall tow
+# be pludnom's in Row, what houm my hals no to Rood
+# 'terenst now gry.
+#
+# Nurrke'd fat; en is prarponard scarn,
+# And inquiuch and-tonf' comestork is mimsine,
+# And Rovend.
+#
+# LOLANU:
+# Foult eid be ceprapard
+# Ceousce effacedre beis,
+# I nothenk preverount is is voictilay? That hathenas to sall oy in sgeows.
+# CAU

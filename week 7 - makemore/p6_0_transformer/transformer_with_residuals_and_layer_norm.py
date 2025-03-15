@@ -1,5 +1,3 @@
-# todo: implement layer norm
-
 # The way to think about this is that:
 #   - self-attention is the communication between the tokens
 #   - then once they've gathered all the data
@@ -23,7 +21,7 @@
 # This network ends up getting pretty deep, hence "deep learning".
 # Without residual connections and normalization layers, the network is unstable and hard to train.
 # Just adding the residual connections stabilizes the network (and it performs way better... wtf!).
-#
+# Slightly better stability with layer norm
 
 import torch
 import torch.nn as nn
@@ -145,12 +143,14 @@ class TransformerBlock(nn.Module):
         super().__init__()
         head_size = n_embd // n_head
         self.sa = MultiHeadAttention(n_head, head_size)
-        self.ffwd = FeedForward(n_embd)
+        self.ffwd = FeedForward(n_embd)  # feed forward per token (cuz applies only to last dimension)
+        self.ln1 = nn.LayerNorm(n_embd)  # batch norm per token (cuz applies only to last dimension)
+        self.ln2 = nn.LayerNorm(n_embd)  # batch norm per token (cuz applies only to last dimension)
 
     def forward(self, x):
         # `x = x + <some computation>` is the residual pathway...
-        x = x + self.sa(x)  #
-        x = x + self.ffwd(x)
+        x = x + self.sa(self.ln1(x))  # MultiHeadAttention now also "projects back into the residual pathway"
+        x = x + self.ffwd(self.ln2(x))  # FeedForward now also "projects back into the residual pathway"
         return x
 
 # super simple bigram model
@@ -165,6 +165,7 @@ class BigramLanguageModel(nn.Module):
             TransformerBlock(n_embd, n_head=4),
             TransformerBlock(n_embd, n_head=4),
             TransformerBlock(n_embd, n_head=4),
+            nn.LayerNorm(n_embd),
         )
         self.lm_head = nn.Linear(n_embd, vocab_size)  # embedding space --> vocabulary space
 
@@ -232,3 +233,29 @@ for iter in range(max_iters):
 # generate from the model
 context = torch.zeros((1, 1), dtype=torch.long)
 print(decode(m.generate(context, max_new_tokens=500)[0].tolist()))
+
+# --- Training ---
+# step 0: train loss 4.3283, val loss 4.3335
+# step 300: train loss 2.5184, val loss 2.5267
+# step 600: train loss 2.3564, val loss 2.3741
+# step 900: train loss 2.2658, val loss 2.2926
+# step 1200: train loss 2.1915, val loss 2.2273
+# step 1500: train loss 2.1590, val loss 2.1900
+# step 1800: train loss 2.1435, val loss 2.1652
+# step 2100: train loss 2.1046, val loss 2.1468
+# step 2400: train loss 2.0910, val loss 2.1509
+# step 2700: train loss 2.0854, val loss 2.1460
+
+# --- Generation ---
+# tiathert a fore?--
+# Selt and forthour Mricter:
+# What slihe arom to spurses, now seat an fathine.
+# Saway and his dany apwier Ropents, arrissoneln fistak---' shan ofboutwesent I groush qoven my thy fall ony
+# for thon:
+# I pince to wence of ducth, san woo Roodersell's and the ball
+# O?
+# Ture at me with not anamen then hean inquised and thaf' comnous, ais mim in my whow hand.:
+# We, thy fooll eid be pestapard
+# Cen sce efure drey disce, of ablk preverount indish lictin,
+# That OF garesast
+# My dostoy in she war shat
