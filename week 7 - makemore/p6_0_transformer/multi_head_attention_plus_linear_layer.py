@@ -1,4 +1,22 @@
-# todo: implement (this is just a copy of multi_head_attention.py)
+# The way to think about this is that:
+#   - self-attention is the communication between the tokens
+#   - then once they've gathered all the data
+#   - now they need to "think" on that data individually
+#       - i.e. compute in the Linear followed by Relu
+
+# We can stack these layers now:
+#   - attention block 1
+#       - MultiHeadAttention 1
+#       - Linear 1
+#       - Relu 1
+#   - attention block 2
+#       - MultiHeadAttention 2
+#       - Linear 2
+#       - Relu 2
+#   - ...
+
+# communication/computation sandwiches:
+#   - communication -> computation -> communication -> computation -> ...
 
 import torch
 import torch.nn as nn
@@ -94,6 +112,18 @@ class MultiHeadAttention(nn.Module):
     def forward(self, x):
         return torch.cat([h(x) for h in self.heads], dim=-1)  # concatenate over the channel dimension (B, T, C)
 
+class FeedForward(nn.Module):
+    """ a simple linear layer followed by a non-linearity """
+    def __init__(self, n_embd):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(n_embd, n_embd),
+            nn.ReLU(),
+        )
+
+    def forward(self, x):
+        return self.net(x)
+
 # super simple bigram model
 class BigramLanguageModel(nn.Module):
 
@@ -103,6 +133,7 @@ class BigramLanguageModel(nn.Module):
         self.token_embedding_table = nn.Embedding(vocab_size, n_embd)  # token information (in token embedding space)
         self.position_embedding_table = nn.Embedding(block_size, n_embd)  # positional information (in position embedding space)
         self.sa_heads = MultiHeadAttention(4, n_embd // 4)  # i.e. 4 heads of 8-dimensional self-attention
+        self.ffwd = FeedForward(n_embd) # additional processing
         self.lm_head = nn.Linear(n_embd, vocab_size)  # embedding space --> vocabulary space
 
     def forward(self, idx, targets=None):
@@ -112,7 +143,8 @@ class BigramLanguageModel(nn.Module):
         tok_emb = self.token_embedding_table(idx) # (B, T, C)
         pos_emb = self.position_embedding_table(torch.arange(T)) # (T, C)
         x = tok_emb + pos_emb # (B, T, C)
-        x = self.sa_heads(x)  # apply one head of self-attention. (B, T, C)
+        x = self.sa_heads(x) # apply one head of self-attention. (B, T, C)
+        x = self.ffwd(x) # (B, T, C)
         logits = self.lm_head(x) # (B, T, vocab_size)
 
         if targets is None:
@@ -169,3 +201,35 @@ for iter in range(max_iters):
 # generate from the model
 context = torch.zeros((1, 1), dtype=torch.long)
 print(decode(m.generate(context, max_new_tokens=500)[0].tolist()))
+
+# --- Training ---
+# step 0: train loss 4.1701, val loss 4.1687
+# step 300: train loss 2.3934, val loss 2.4069
+# step 600: train loss 2.2850, val loss 2.3258
+# step 900: train loss 2.2643, val loss 2.3104
+# step 1200: train loss 2.2399, val loss 2.2679
+# step 1500: train loss 2.2155, val loss 2.2912
+# step 1800: train loss 2.2243, val loss 2.2793
+# step 2100: train loss 2.2081, val loss 2.2616
+# step 2400: train loss 2.1837, val loss 2.2628
+# step 2700: train loss 2.1896, val loss 2.2682
+
+# --- Generation ---
+# Dy; my to lot ise fis baloves.
+#
+# thamed bacathert a fore?-
+#
+# QUEEV:
+# God an ware riste af
+# frour iseareoke,
+# Thours thee fis.
+#
+# COR De; faboruro wineed him wey prowxin apentsearr forenelar isth heis shis of an wasent watelf gique whes, by you, of afould his Go Bure Lor Sich of do thels Prat.
+#
+# KING Re Yoblon, thas tat
+# Ore ufee to en good my afart sther,
+# And of olued and-thaf out cous hais mimuine,
+# Kad Rove olaife,
+# No:'f slame me wice napar bleo sce ef thimre bris,
+# I of ableappe cro no goak,
+# AlZOMERIA:
