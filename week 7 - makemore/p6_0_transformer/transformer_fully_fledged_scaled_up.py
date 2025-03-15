@@ -23,6 +23,7 @@
 # Just adding the residual connections stabilizes the network (and it performs way better... wtf!).
 # Slightly better stability with layer norm
 # todo: add comment on dropout
+# todo: add comment on hyperparameters
 
 import torch
 import torch.nn as nn
@@ -32,15 +33,15 @@ torch.set_default_device("mps")  # use gpu
 torch.manual_seed(1337)
 
 # hyperparameters
-batch_size = 32 # how many independent sequences will we process in parallel?
-block_size = 8 # what is the maximum context length for predictions?
-max_iters = 3000
-eval_interval = 300
-learning_rate = 1e-3 # reduce learning rate
+batch_size = 64 # how many independent sequences will we process in parallel?
+block_size = 256 # what is the maximum context length for predictions?
+max_iters = 5000
+eval_interval = 500
+learning_rate = 3e-4
 eval_iters = 200
-n_embd = 32
-n_head = 4
-n_transformer_blocks = 3
+n_embd = 384
+n_head = 6  # every head is 64 dimensional
+n_transformer_blocks = 6
 dropout = 0.2
 # ------------
 
@@ -237,37 +238,42 @@ for iter in range(max_iters):
     loss.backward()
     optimizer.step()
 
+losses = estimate_loss()
+print(f"Final: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
+
 # generate from the model
 context = torch.zeros((1, 1), dtype=torch.long)
 print(decode(m.generate(context, max_new_tokens=500)[0].tolist()))
 
 # --- Training ---
-# step 0: train loss 4.3283, val loss 4.3335
-# step 300: train loss 2.5605, val loss 2.5688
-# step 600: train loss 2.4122, val loss 2.4217
-# step 900: train loss 2.3496, val loss 2.3528
-# step 1200: train loss 2.2906, val loss 2.3118
-# step 1500: train loss 2.2588, val loss 2.2681
-# step 1800: train loss 2.2297, val loss 2.2384
-# step 2100: train loss 2.2025, val loss 2.2135
-# step 2400: train loss 2.2035, val loss 2.2104
-# step 2700: train loss 2.1691, val loss 2.1981
+# step 0: train loss 4.3283, val loss 4.3285
+# step 500: train loss 1.9113, val loss 2.0072
+# step 1000: train loss 1.5471, val loss 1.7220
+# step 1500: train loss 1.4018, val loss 1.6085
+# step 2000: train loss 1.3191, val loss 1.5506
+# step 2500: train loss 1.2571, val loss 1.5096
+# step 3000: train loss 1.2121, val loss 1.5016
+# step 3500: train loss 1.1690, val loss 1.4926
+# step 4000: train loss 1.1311, val loss 1.4867
+# step 4500: train loss 1.0956, val loss 1.4887
+# Final: train loss 1.0606, val loss 1.4919
 
 # --- Generation ---
-# Thy thee outh, sithe ack co moktle,-
-# Wen't the your hall mu dace not thou shinon of tee my the fis'd but wAr sows out me, to whengeart have, ame jeakirnall bove mither aw hist pree my no cay shen: und we wighws? E:
-# Foueglaneurinots I star, hes ay BUCE:
-# And thou whe depeay, fore.
+# Paged be in affe we both grows it.
+# Almost with a petite of this plant Thursday with the
+# slanders; when it 'twill the prodigress.
 #
+# FRIAR LAURENCE:
+# From the cold tumond of that e'er set
+# For brother.
 #
-# LA:
-# Thes ank.
-# low
-# Won thack he en yoor we lim so may kee mad: and, storlau, blo she. I tith thil
-# Im wath torpod be.
+# CARDISS OF:
+# A though I people
+# Tyrs' to me: 'tis good sons received, pity and that
+# prosecures of her deed own crepting: 'tis her, his exercise:
+# Let his sorrow go we her.
 #
-# NUROLIABEN:
-# Pras by leBun a hus's wirfy lifmans:
-# To
-# Wyours lee, thand cace seer, or, idy'l heem--
-# Th
+# FRIAR LAURENCY:
+# Return, brother of England's Sly, Den.
+# The manst thou eopen, sit in the hole day,
+# The dead constantly, but I say, or
