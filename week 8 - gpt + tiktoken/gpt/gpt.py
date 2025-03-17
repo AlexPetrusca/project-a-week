@@ -22,8 +22,8 @@
 # Without residual connections and normalization layers, the network is unstable and hard to train.
 # Just adding the residual connections stabilizes the network (and it performs way better... wtf!).
 # Slightly better stability with layer norm
-# todo: add comment on dropout
-# todo: add comment on hyperparameters
+# Dropout helps with overfitting
+# Scaling hyperparameters makes the language model far more powerful, but promotes overfitting
 
 import torch
 import torch.nn as nn
