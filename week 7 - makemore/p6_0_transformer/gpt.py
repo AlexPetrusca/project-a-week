@@ -36,12 +36,12 @@ torch.manual_seed(1337)
 batch_size = 64 # how many independent sequences will we process in parallel?
 block_size = 256 # what is the maximum context length for predictions?
 max_iters = 5000
-eval_interval = 500
+eval_interval = 100
 learning_rate = 3e-4
 eval_iters = 200
-n_embd = 384
-n_head = 6  # every head is 64 dimensional
-n_transformer_blocks = 6
+n_embd = 768
+n_head = 12  # every head is 64 dimensional
+n_transformer_blocks = 12
 dropout = 0.2
 # ------------
 
