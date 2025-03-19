@@ -3,3 +3,5 @@ matplotlib
 torch
 tiktoken
 sentencepiece
+transformers
+ipywidgets
