@@ -105,7 +105,6 @@ class Head(nn.Module):
         out = wei @ v  # (B, T, T) @ (B, T, head_size)  -->  (B, T, head_size)
         return out
 
-# todo: implementing this was very simple but what does it mean and why is better than single head?
 class MultiHeadAttention(nn.Module):
     """ multiple heads of self-attention in parallel """
 
