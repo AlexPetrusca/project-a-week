@@ -5,6 +5,9 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 
+import tiktoken
+from transformers import GPT2LMHeadModel
+
 
 class CausalSelfAttention(nn.Module):
 
@@ -126,7 +129,6 @@ class GPT(nn.Module):
     def from_pretrained(cls, model_type):
         """Loads pretrained GPT-2 model weights from huggingface"""
         assert model_type in {'gpt2', 'gpt2-medium', 'gpt2-large', 'gpt2-xl'}
-        from transformers import GPT2LMHeadModel
         print(f"loading weights from pretrained gpt: {model_type}")
 
         # n_layer, n_head and n_embd are determined from model_type
@@ -175,6 +177,9 @@ class GPT(nn.Module):
 
 
 if __name__ == "__main__":
+    # torch setup
+    torch.manual_seed(42)
+
     # attempt to autodetect the device
     device = "cpu"
     if torch.cuda.is_available():
@@ -183,27 +188,38 @@ if __name__ == "__main__":
         device = "mps"
     print(f"using device: {device}")
 
-    # torch setup
-    torch.manual_seed(42)
+    # get a data batch
+    enc = tiktoken.get_encoding('gpt2')
+    with open('res/tinyshakespeare.txt', 'r') as f:
+        text = f.read()
+    text = text[:1000]
+    tokens = enc.encode(text)
+    B, T = 4, 32
+    buf = torch.tensor(tokens[:B*T + 1])
+    buf = buf.to(device)
+    x = buf[:-1].view(B, T)
+    y = buf[1:].view(B, T)
 
-    # create minGPT model from pretrained parameters of GPT-2
+    # get logits
     model = GPT(config=GPTConfig())
-    model.eval()
     model.to(device)
+    logits = model(x)
+
+    print(logits.shape)
+    import sys; sys.exit(0)
 
     # generation parameters
     num_return_sequences = 5
     max_length = 30
 
     # encode prefix tokens
-    import tiktoken
-    enc = tiktoken.get_encoding('gpt2')
     tokens = enc.encode("Hello, I'm a language model,")
     tokens = torch.tensor(tokens, dtype=torch.long) # (8 tokens,)
     tokens = tokens.unsqueeze(0).repeat(num_return_sequences, 1) # (5 rows, 8 tokens)
     x = tokens.to(device)
 
     # generate! right now x is (B, T) where B = 5, T = 8
+    model.eval()
     while x.size(1) < max_length:
         # forward the model to get the logits
         with torch.no_grad():
