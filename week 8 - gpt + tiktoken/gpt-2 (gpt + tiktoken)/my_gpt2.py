@@ -108,6 +108,9 @@ class GPT(nn.Module):
         ))
         self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=False)
 
+        # weight sharing scheme
+        self.transformer.wte.weight = self.lm_head.weight
+
     def forward(self, idx, targets=None):
         # idx is of shape (B, T)
         B, T = idx.size()
@@ -216,7 +219,7 @@ class DataLoaderLite:
 
 if __name__ == "__main__":
     # torch setup
-    # torch.set_default_device('mps')
+    torch.set_default_device('mps')
     torch.manual_seed(42)
 
     # create a train set loader
