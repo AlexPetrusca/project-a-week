@@ -247,28 +247,59 @@ if __name__ == "__main__":
     model = GPT(config=gpt_config)
     model.to(device)
 
+    # learning rate scheduler - cosine decay
+    max_lr = 6e-4
+    min_lr = max_lr * 0.1
+    warmup_steps = 10
+    max_steps = 50
+    def get_lr(it):
+        # 1) linear warmup for warmup_iters steps
+        if it < warmup_steps:
+            return max_lr * (it+1) / warmup_steps
+        # 2) if it > lr_decay_iters, return min learning rate
+        if it > max_steps:
+            return min_lr
+        # 3) in between, use cosine decay down to min learning rate
+        decay_ratio = (it - warmup_steps) / (max_steps - warmup_steps)
+        assert 0 <= decay_ratio <= 1
+        coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio)) # coeff starts at 1 and goes to 0
+        return min_lr + coeff * (max_lr - min_lr)
+
     # optimize!
     optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4)
     start = datetime.now()
-    num_epochs = 100
-    for i in range(num_epochs):
+    for steps in range(max_steps):
         t0 = time.time()
+
+        # load next batch
         x, y = train_loader.next_batch()
         x, y = x.to(device), y.to(device)
+
+        # compute logits, compute loss, backward the loss
         optimizer.zero_grad()
         with torch.autocast(device_type=device, dtype=torch.float16):
             logits, loss = model(x, y)
         loss.backward()
+
+        # clip grads to a max norm
         norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+        # determine and set the learning rate for this iteration
+        lr = get_lr(steps)
+        for param_group in optimizer.param_groups:
+            param_group['lr'] = lr
+
+        # update parameters
         optimizer.step()
+
         t1 = time.time()
         dt = (t1 - t0) * 1000 # time difference in milliseconds
         tokens_per_sec = (train_loader.B * train_loader.T) / (t1 - t0)
         iterations_per_sec = 1 / (t1 - t0)
-        print(f"{datetime.now()} - step {i}, loss: {loss:.4f}, norm: {norm:.4f}, dt: {dt:.2f}ms, tok/sec: {tokens_per_sec:.2f} tokens/sec")
+        print(f"{datetime.now()} - step {steps}, loss: {loss:.4f}, lr: {lr:.4e}, norm: {norm:.4f}, dt: {dt:.2f}ms, tok/sec: {tokens_per_sec:.2f} tokens/sec")
+
     end = datetime.now()
     print(f"total time: {end - start}")
-    print(f"average tokens/sec: {(train_loader.B * train_loader.T * num_epochs) / (end.timestamp() - start.timestamp())}")
+    print(f"average tokens/sec: {(train_loader.B * train_loader.T * max_steps) / (end.timestamp() - start.timestamp())}")
 
     def generate(num_return_sequences = 5, max_length = 30):
         # encode prefix tokens
