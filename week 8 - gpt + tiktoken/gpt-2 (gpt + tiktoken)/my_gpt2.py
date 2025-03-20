@@ -47,6 +47,7 @@ class CausalSelfAttention(nn.Module):
         att = att.masked_fill(self.bias[:, :, :T, :T] == 0, float('-inf')) # NOTE: mask out affinities that aren't causal
         att = F.softmax(att, dim=-1) # NOTE: convert affinities to probabilities (-inf -> 0%)
         y = att @ v # (B, nh, T, T) x (B, nh, T, hs) -> (B, nh, T, hs)  # NOTE: weighted sum of values of the tokens based on attention
+        # y = F.scaled_dot_product_attention(q, k, v, is_causal=True) # flash attention
         y = y.transpose(1, 2).contiguous().view(B, T, C) # re-assemble all head outputs side by side
         # output projection
         y = self.c_proj(y)
@@ -241,7 +242,7 @@ if __name__ == "__main__":
     device = 'mps'
 
     # get logits
-    gpt_config = GPTConfig()
+    gpt_config = GPTConfig(vocab_size=50304) # nicer number runs faster!
     train_loader = DataLoaderLite('res/tinyshakespeare.txt', 8, gpt_config.block_size)
     model = GPT(config=gpt_config)
     model.to(device)
@@ -249,7 +250,8 @@ if __name__ == "__main__":
     # optimize!
     optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4)
     start = datetime.now()
-    for i in range(100):
+    num_epochs = 100
+    for i in range(num_epochs):
         t0 = time.time()
         x, y = train_loader.next_batch()
         x, y = x.to(device), y.to(device)
@@ -261,43 +263,43 @@ if __name__ == "__main__":
         t1 = time.time()
         dt = (t1 - t0) * 1000 # time difference in milliseconds
         tokens_per_sec = (train_loader.B * train_loader.T) / (t1 - t0)
+        iterations_per_sec = 1 / (t1 - t0)
         print(f"{datetime.now()} - step {i}, loss: {loss:.4f}, dt: {dt:.2f}ms, tok/sec: {tokens_per_sec:.2f} tokens/sec")
     end = datetime.now()
     print(f"total time: {end - start}")
-    print(f"throughput: {end - start}")
+    print(f"average tokens/sec: {(train_loader.B * train_loader.T * num_epochs) / (end.timestamp() - start.timestamp())}")
 
-    # generation parameters
-    num_return_sequences = 5
-    max_length = 30
+    def generate(num_return_sequences = 5, max_length = 30):
+        # encode prefix tokens
+        enc = tiktoken.get_encoding('gpt2')
+        tokens = enc.encode("Hello, I'm a language model,")
+        tokens = torch.tensor(tokens, dtype=torch.long)  # (8 tokens,)
+        tokens = tokens.unsqueeze(0).repeat(num_return_sequences, 1)  # (5 rows, 8 tokens)
+        x = tokens.to(device)
 
-    # encode prefix tokens
-    enc = tiktoken.get_encoding('gpt2')
-    tokens = enc.encode("Hello, I'm a language model,")
-    tokens = torch.tensor(tokens, dtype=torch.long) # (8 tokens,)
-    tokens = tokens.unsqueeze(0).repeat(num_return_sequences, 1) # (5 rows, 8 tokens)
-    x = tokens.to(device)
+        # generate! right now x is (B, T) where B = 5, T = 8
+        model.eval()
+        while x.size(1) < max_length:
+            # forward the model to get the logits
+            with torch.no_grad():
+                logits = model(x)[0]  # (B, T, vocab_size)
+                # take the logits at the last position
+                logits = logits[:, -1, :]  # (B, vocab_size)
+                # get the probabilities
+                probs = F.softmax(logits, dim=-1)
+                # do top-k sampling of 50 (huggingface pipeline default)
+                topk_probs, topk_indices = torch.topk(probs, 50, dim=-1)  # (B, 50) & (B, 50)
+                # select a token from the top-k probabilities
+                ix = torch.multinomial(topk_probs, num_samples=1)  # (B, 1)
+                # gather the corresponding indices
+                xcol = torch.gather(topk_indices, dim=-1, index=ix)  # (B, 1)
+                # append to the sequence
+                x = torch.cat((x, xcol), dim=1)
 
-    # generate! right now x is (B, T) where B = 5, T = 8
-    model.eval()
-    while x.size(1) < max_length:
-        # forward the model to get the logits
-        with torch.no_grad():
-            logits = model(x)[0] # (B, T, vocab_size)
-            # take the logits at the last position
-            logits = logits[:, -1, :] # (B, vocab_size)
-            # get the probabilities
-            probs = F.softmax(logits, dim=-1)
-            # do top-k sampling of 50 (huggingface pipeline default)
-            topk_probs, topk_indices = torch.topk(probs, 50, dim=-1) # (B, 50) & (B, 50)
-            # select a token from the top-k probabilities
-            ix = torch.multinomial(topk_probs, num_samples=1) # (B, 1)
-            # gather the corresponding indices
-            xcol = torch.gather(topk_indices, dim=-1, index=ix) # (B, 1)
-            # append to the sequence
-            x = torch.cat((x, xcol), dim=1)
+        # print the generated text
+        for i in range(num_return_sequences):
+            tokens = x[i, :max_length].tolist()
+            decoded = enc.decode(tokens)
+            print(">", decoded)
 
-    # print the generated text
-    for i in range(num_return_sequences):
-        tokens = x[i, :max_length].tolist()
-        decoded = enc.decode(tokens)
-        print(">", decoded)
+    # generate()

@@ -1,7 +1,8 @@
 numpy
-matplotlib
+mlx
 torch
 tiktoken
 sentencepiece
 transformers
+matplotlib
 ipywidgets
