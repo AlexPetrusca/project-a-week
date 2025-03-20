@@ -22,6 +22,7 @@ class CausalSelfAttention(nn.Module):
         self.c_attn = nn.Linear(config.n_embd, 3 * config.n_embd)
         # output projection
         self.c_proj = nn.Linear(config.n_embd, config.n_embd)
+        self.c_proj.NANOGPT_SCALE_INIT = 1
         # not really a 'bias', more of a mask, but following the OpenAI/HF naming though
         #   - NOTE: specifically, a tril mask to ensure causality
         #   - NOTE: tril mask basically answers the question "does query q_t (row) have access to key k_t (column)?"
@@ -57,6 +58,7 @@ class MLP(nn.Module):
         self.c_fc = nn.Linear(config.n_embd, 4 * config.n_embd)
         self.gelu = nn.GELU(approximate='tanh')  # Note: only using tanh approximation because GPT-2 used it
         self.c_proj = nn.Linear(4 * config.n_embd, config.n_embd)
+        self.c_proj.NANOGPT_SCALE_INIT = 1
 
     def forward(self, x):
         x = self.c_fc(x)
@@ -108,8 +110,22 @@ class GPT(nn.Module):
         ))
         self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=False)
 
-        # weight sharing scheme
+        # weight sharing scheme (refer to [1] in play.ipynb)
         self.transformer.wte.weight = self.lm_head.weight
+
+        # init params
+        self.apply(self._init_weights) # calls _init_weights on all the submodules of this module
+
+    def _init_weights(self, module):
+        if isinstance(module, nn.Linear):
+            std = 0.02
+            if hasattr(module, 'NANOGPT_SCALE_INIT'):
+                std *= (2 * self.config.n_layer) ** -0.5  # residual scaling (refer to [2] in play.ipynb)
+            torch.nn.init.normal_(module.weight, mean=0.0, std=std)
+            if module.bias is not None:
+                torch.nn.init.zeros_(module.bias)
+        elif isinstance(module, nn.Embedding):
+            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
 
     def forward(self, idx, targets=None):
         # idx is of shape (B, T)
@@ -220,7 +236,7 @@ class DataLoaderLite:
 if __name__ == "__main__":
     # torch setup
     torch.set_default_device('mps')
-    torch.manual_seed(42)
+    torch.manual_seed(1337)
 
     # create a train set loader
     train_loader = DataLoaderLite('res/tinyshakespeare.txt', 4, 32)
