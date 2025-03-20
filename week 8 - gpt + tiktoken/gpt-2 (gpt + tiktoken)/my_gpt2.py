@@ -1,4 +1,5 @@
 import math
+import time
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -249,15 +250,20 @@ if __name__ == "__main__":
     optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4)
     start = datetime.now()
     for i in range(100):
+        t0 = time.time()
         x, y = train_loader.next_batch()
         x, y = x.to(device), y.to(device)
         optimizer.zero_grad()
         logits, loss = model(x, y)
         loss.backward()
         optimizer.step()
-        print(f"{datetime.now()} - step {i}, loss: {loss}")
+        t1 = time.time()
+        dt = (t1 - t0) * 1000 # time difference in milliseconds
+        tokens_per_sec = (train_loader.B * train_loader.T) / (t1 - t0)
+        print(f"{datetime.now()} - step {i}, loss: {loss:.4f}, dt: {dt:.2f}ms, tok/sec: {tokens_per_sec:.2f} tokens/sec")
     end = datetime.now()
     print(f"total time: {end - start}")
+    print(f"throughput: {end - start}")
 
     # generation parameters
     num_return_sequences = 5
