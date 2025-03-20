@@ -1,5 +1,6 @@
 import math
 from dataclasses import dataclass
+from datetime import datetime
 
 import torch
 import torch.nn as nn
@@ -235,24 +236,28 @@ class DataLoaderLite:
 
 if __name__ == "__main__":
     # pytorch settings
-    torch.set_default_device('mps')
     torch.manual_seed(1337)
-
-    # create a train set loader
-    train_loader = DataLoaderLite('res/tinyshakespeare.txt', 4, 32)
+    device = torch.device('mps')
 
     # get logits
-    model = GPT(config=GPTConfig())
+    gpt_config = GPTConfig()
+    train_loader = DataLoaderLite('res/tinyshakespeare.txt', 8, gpt_config.block_size)
+    model = GPT(config=gpt_config)
+    model.to(device)
 
     # optimize!
     optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4)
-    for i in range(300):
+    start = datetime.now()
+    for i in range(100):
         x, y = train_loader.next_batch()
+        x, y = x.to(device), y.to(device)
         optimizer.zero_grad()
         logits, loss = model(x, y)
         loss.backward()
         optimizer.step()
-        print(f"step {i}, loss: {loss}")
+        print(f"{datetime.now()} - step {i}, loss: {loss}")
+    end = datetime.now()
+    print(f"total time: {end - start}")
 
     # generation parameters
     num_return_sequences = 5
@@ -262,7 +267,8 @@ if __name__ == "__main__":
     enc = tiktoken.get_encoding('gpt2')
     tokens = enc.encode("Hello, I'm a language model,")
     tokens = torch.tensor(tokens, dtype=torch.long) # (8 tokens,)
-    x = tokens.unsqueeze(0).repeat(num_return_sequences, 1) # (5 rows, 8 tokens)
+    tokens = tokens.unsqueeze(0).repeat(num_return_sequences, 1) # (5 rows, 8 tokens)
+    x = tokens.to(device)
 
     # generate! right now x is (B, T) where B = 5, T = 8
     model.eval()
