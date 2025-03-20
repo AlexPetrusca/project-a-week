@@ -4,5 +4,6 @@ torch
 tiktoken
 sentencepiece
 transformers
+datasets
 matplotlib
 ipywidgets
