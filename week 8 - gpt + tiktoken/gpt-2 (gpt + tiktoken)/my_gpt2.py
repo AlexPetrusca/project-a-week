@@ -259,12 +259,13 @@ if __name__ == "__main__":
         with torch.autocast(device_type=device, dtype=torch.float16):
             logits, loss = model(x, y)
         loss.backward()
+        norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         optimizer.step()
         t1 = time.time()
         dt = (t1 - t0) * 1000 # time difference in milliseconds
         tokens_per_sec = (train_loader.B * train_loader.T) / (t1 - t0)
         iterations_per_sec = 1 / (t1 - t0)
-        print(f"{datetime.now()} - step {i}, loss: {loss:.4f}, dt: {dt:.2f}ms, tok/sec: {tokens_per_sec:.2f} tokens/sec")
+        print(f"{datetime.now()} - step {i}, loss: {loss:.4f}, norm: {norm:.4f}, dt: {dt:.2f}ms, tok/sec: {tokens_per_sec:.2f} tokens/sec")
     end = datetime.now()
     print(f"total time: {end - start}")
     print(f"average tokens/sec: {(train_loader.B * train_loader.T * num_epochs) / (end.timestamp() - start.timestamp())}")
