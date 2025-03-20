@@ -238,7 +238,7 @@ class DataLoaderLite:
 if __name__ == "__main__":
     # pytorch settings
     torch.manual_seed(1337)
-    device = torch.device('mps')
+    device = 'mps'
 
     # get logits
     gpt_config = GPTConfig()
@@ -254,7 +254,8 @@ if __name__ == "__main__":
         x, y = train_loader.next_batch()
         x, y = x.to(device), y.to(device)
         optimizer.zero_grad()
-        logits, loss = model(x, y)
+        with torch.autocast(device_type=device, dtype=torch.float16):
+            logits, loss = model(x, y)
         loss.backward()
         optimizer.step()
         t1 = time.time()
