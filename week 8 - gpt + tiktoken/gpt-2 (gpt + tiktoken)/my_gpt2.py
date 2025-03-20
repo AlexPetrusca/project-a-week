@@ -175,13 +175,21 @@ class GPT(nn.Module):
 
 
 if __name__ == "__main__":
+    # attempt to autodetect the device
+    device = "cpu"
+    if torch.cuda.is_available():
+        device = "cuda"
+    elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        device = "mps"
+    print(f"using device: {device}")
+
     # torch setup
     torch.manual_seed(42)
 
     # create minGPT model from pretrained parameters of GPT-2
     model = GPT(config=GPTConfig())
     model.eval()
-    model.to('mps')
+    model.to(device)
 
     # generation parameters
     num_return_sequences = 5
@@ -193,7 +201,7 @@ if __name__ == "__main__":
     tokens = enc.encode("Hello, I'm a language model,")
     tokens = torch.tensor(tokens, dtype=torch.long) # (8 tokens,)
     tokens = tokens.unsqueeze(0).repeat(num_return_sequences, 1) # (5 rows, 8 tokens)
-    x = tokens.to('mps')
+    x = tokens.to(device)
 
     # generate! right now x is (B, T) where B = 5, T = 8
     while x.size(1) < max_length:
