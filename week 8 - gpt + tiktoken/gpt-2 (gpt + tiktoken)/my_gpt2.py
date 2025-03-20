@@ -262,65 +262,79 @@ if __name__ == "__main__":
     torch.manual_seed(1337)
     device = 'mps'
 
-    # get logits
+    # hyperparameters
     gpt_config = GPTConfig(vocab_size=50304) # nicer number runs faster!
-    train_loader = DataLoaderLite('res/tinyshakespeare.txt', 8, gpt_config.block_size)
+    total_batch_size = 2**16 #2**19
+    B = 8 # micro batch size
+    T = gpt_config.block_size # micro batch size
+    assert total_batch_size % (B * T) == 0, "make sure total_batch_size is divisible by B * T"
+    grad_accum_steps = total_batch_size // (B * T)
+    print(f"total desired batch size: {total_batch_size}")
+    print(f"=> calculated gradient accumulation steps: {grad_accum_steps}")
+
+    # create data loader and model
+    train_loader = DataLoaderLite('res/tinyshakespeare.txt', B, T)
     model = GPT(config=gpt_config)
     model.to(device)
 
-    # learning rate scheduler - cosine decay
-    max_lr = 6e-4
-    min_lr = max_lr * 0.1
-    warmup_steps = 10
-    max_steps = 50
-    def get_lr(it):
-        # 1) linear warmup for warmup_iters steps
-        if it < warmup_steps:
-            return max_lr * (it+1) / warmup_steps
-        # 2) if it > lr_decay_iters, return min learning rate
-        if it > max_steps:
-            return min_lr
-        # 3) in between, use cosine decay down to min learning rate
-        decay_ratio = (it - warmup_steps) / (max_steps - warmup_steps)
-        assert 0 <= decay_ratio <= 1
-        coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio)) # coeff starts at 1 and goes to 0
-        return min_lr + coeff * (max_lr - min_lr)
+    def train():
+        # learning rate scheduler - cosine decay
+        max_lr = 6e-4 * 3
+        min_lr = max_lr * 0.1
+        warmup_steps = 10
+        max_steps = 50
+        def get_lr(it):
+            # 1) linear warmup for warmup_iters steps
+            if it < warmup_steps:
+                return max_lr * (it+1) / warmup_steps
+            # 2) if it > lr_decay_iters, return min learning rate
+            if it > max_steps:
+                return min_lr
+            # 3) in between, use cosine decay down to min learning rate
+            decay_ratio = (it - warmup_steps) / (max_steps - warmup_steps)
+            assert 0 <= decay_ratio <= 1
+            coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio)) # coeff starts at 1 and goes to 0
+            return min_lr + coeff * (max_lr - min_lr)
 
-    # optimize!
-    optimizer = model.configure_optimizers(weight_decay=0.1, learning_rate=6e-4)
-    start = datetime.now()
-    for steps in range(max_steps):
-        t0 = time.time()
+        # optimize!
+        optimizer = model.configure_optimizers(weight_decay=0.1, learning_rate=6e-4)
+        start = datetime.now()
+        for step in range(max_steps):
+            t0 = time.time()
 
-        # load next batch
-        x, y = train_loader.next_batch()
-        x, y = x.to(device), y.to(device)
+            # compute logits, compute loss, backward the loss
+            optimizer.zero_grad()
+            loss_accum = 0.0
+            for micro_step in range(grad_accum_steps):
+                # load next batch
+                x, y = train_loader.next_batch()
+                x, y = x.to(device), y.to(device)
+                # accumulate gradients
+                with torch.autocast(device_type=device, dtype=torch.float16):
+                    logits, loss = model(x, y)
+                loss = loss / grad_accum_steps # refer to [3] in play.ipynb
+                loss_accum += loss.detach()
+                loss.backward()
 
-        # compute logits, compute loss, backward the loss
-        optimizer.zero_grad()
-        with torch.autocast(device_type=device, dtype=torch.float16):
-            logits, loss = model(x, y)
-        loss.backward()
+            # clip grads to a max norm
+            norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            # determine and set the learning rate for this iteration
+            lr = get_lr(step)
+            for param_group in optimizer.param_groups:
+                param_group['lr'] = lr
 
-        # clip grads to a max norm
-        norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-        # determine and set the learning rate for this iteration
-        lr = get_lr(steps)
-        for param_group in optimizer.param_groups:
-            param_group['lr'] = lr
+            # update parameters
+            optimizer.step()
 
-        # update parameters
-        optimizer.step()
+            t1 = time.time()
+            dt = (t1 - t0) * 1000 # time difference in milliseconds
+            tokens_per_sec = (train_loader.B * train_loader.T * grad_accum_steps) / (t1 - t0)
+            iterations_per_sec = 1 / (t1 - t0)
+            print(f"{datetime.now()} - step {step}, loss: {loss_accum:.4f}, lr: {lr:.4e}, norm: {norm:.4f}, dt: {dt:.2f}ms, tok/sec: {tokens_per_sec:.2f} tokens/sec")
 
-        t1 = time.time()
-        dt = (t1 - t0) * 1000 # time difference in milliseconds
-        tokens_per_sec = (train_loader.B * train_loader.T) / (t1 - t0)
-        iterations_per_sec = 1 / (t1 - t0)
-        print(f"{datetime.now()} - step {steps}, loss: {loss:.4f}, lr: {lr:.4e}, norm: {norm:.4f}, dt: {dt:.2f}ms, tok/sec: {tokens_per_sec:.2f} tokens/sec")
-
-    end = datetime.now()
-    print(f"total time: {end - start}")
-    print(f"average tokens/sec: {(train_loader.B * train_loader.T * max_steps) / (end.timestamp() - start.timestamp())}")
+        end = datetime.now()
+        print(f"total time: {end - start}")
+        print(f"average tokens/sec: {(train_loader.B * train_loader.T * max_steps * grad_accum_steps) / (end.timestamp() - start.timestamp())}")
 
     def generate(num_return_sequences = 5, max_length = 30):
         # encode prefix tokens
@@ -355,4 +369,5 @@ if __name__ == "__main__":
             decoded = enc.decode(tokens)
             print(">", decoded)
 
+    train()
     # generate()
