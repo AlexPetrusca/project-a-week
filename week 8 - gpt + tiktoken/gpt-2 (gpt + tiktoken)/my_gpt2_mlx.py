@@ -18,7 +18,7 @@ class CausalSelfAttention(nn.Module):
 
         self.n_heads = config.n_head
         self.n_embd = config.n_embd
-        self.causal_mask = CausalSelfAttention.create_additive_causal_mask(config.block_size)
+        self.causal_mask = CausalSelfAttention.create_additive_causal_mask(config.block_size, dtype=config.dtype)
 
         self.query_proj = nn.Linear(self.n_embd, self.n_embd)
         self.key_proj = nn.Linear(self.n_embd, self.n_embd)
@@ -90,6 +90,7 @@ class GPTConfig:
     n_layer: int = 12 # number of layers
     n_head: int = 12 # number of heads
     n_embd: int = 768 # embedding dimension
+    dtype = mx.bfloat16
     # NOTE: head_size = n_embd / n_head = 64  # embedding dimension of each attention head
 
 
@@ -130,9 +131,9 @@ class GPT(nn.Module):
 
 
 class DataLoaderLite:
-    def __init__(self, path, B, T):
-        self.B = B
-        self.T = T
+    def __init__(self, path, batch_shape):
+        self.B = batch_shape[0]
+        self.T = batch_shape[1]
 
         # at init load tokens from disk and store them in memory
         with open(path, 'r') as f:
@@ -141,7 +142,7 @@ class DataLoaderLite:
         tokens = enc.encode(text)
         self.tokens = mx.array(tokens)
         print(f"loaded {len(self.tokens)} tokens")
-        print(f"1 epoch = {len(self.tokens) // (B * T)} batches")
+        print(f"1 epoch = {len(self.tokens) // (self.B * self.T)} batches")
 
         # state
         self.current_position = 0
@@ -163,15 +164,15 @@ if __name__ == "__main__":
     n_batch = 10
 
     gpt_config = GPTConfig()
-    train_loader = DataLoaderLite('res/tinyshakespeare.txt', 8, gpt_config.block_size)
+    train_loader = DataLoaderLite('res/tinyshakespeare.txt', (16, gpt_config.block_size))
+
     model = GPT(gpt_config)
+    model.set_dtype(gpt_config.dtype)
     mx.eval(model.parameters())
-    nparams = sum(
-        x.size for k, x in tree_flatten(model.parameters()) if "embedding" not in k
-    )
+    nparams = sum(x.size for k, x in tree_flatten(model.parameters()) if "embedding" not in k)
     print(f"Training a transformer with {nparams / 1024**2:.3f} M parameters")
 
-    optimizer = optim.AdamW(learning_rate=3e-4)
+    optimizer = optim.AdamW(learning_rate=3e-4, betas=[0.9, 0.95])
 
     def loss_fn(model, x, y, reduce=True):
         logits = model(x)
@@ -208,7 +209,8 @@ if __name__ == "__main__":
     def generate(num_return_sequences = 5, max_length = 30):
         # encode prefix tokens
         enc = tiktoken.get_encoding('gpt2')
-        tokens = enc.encode("Hello, I'm a language model,")
+        # tokens = enc.encode("Hello, I'm a language model,")
+        tokens = enc.encode("hello")
         tokens = mx.array(tokens, dtype=mx.int32)  # (8 tokens,)
         x = mx.repeat(mx.expand_dims(tokens, axis=0), num_return_sequences, axis=0)  # (5 rows, 8 tokens)
 
