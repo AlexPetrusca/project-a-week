@@ -234,7 +234,7 @@ class DataLoaderLite:
 
 
 if __name__ == "__main__":
-    # torch setup
+    # pytorch settings
     torch.set_default_device('mps')
     torch.manual_seed(1337)
 
@@ -245,10 +245,8 @@ if __name__ == "__main__":
     model = GPT(config=GPTConfig())
 
     # optimize!
-    torch.set_default_device('cpu')
     optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4)
-    torch.set_default_device('mps')
-    for i in range(50):
+    for i in range(300):
         x, y = train_loader.next_batch()
         optimizer.zero_grad()
         logits, loss = model(x, y)
@@ -256,24 +254,22 @@ if __name__ == "__main__":
         optimizer.step()
         print(f"step {i}, loss: {loss}")
 
-    import sys; sys.exit(0)
-
     # generation parameters
     num_return_sequences = 5
     max_length = 30
 
     # encode prefix tokens
+    enc = tiktoken.get_encoding('gpt2')
     tokens = enc.encode("Hello, I'm a language model,")
     tokens = torch.tensor(tokens, dtype=torch.long) # (8 tokens,)
-    tokens = tokens.unsqueeze(0).repeat(num_return_sequences, 1) # (5 rows, 8 tokens)
-    x = tokens.to(device)
+    x = tokens.unsqueeze(0).repeat(num_return_sequences, 1) # (5 rows, 8 tokens)
 
     # generate! right now x is (B, T) where B = 5, T = 8
     model.eval()
     while x.size(1) < max_length:
         # forward the model to get the logits
         with torch.no_grad():
-            logits = model(x) # (B, T, vocab_size)
+            logits = model(x)[0] # (B, T, vocab_size)
             # take the logits at the last position
             logits = logits[:, -1, :] # (B, vocab_size)
             # get the probabilities
