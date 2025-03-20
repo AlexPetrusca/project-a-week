@@ -172,7 +172,7 @@ if __name__ == "__main__":
     nparams = sum(x.size for k, x in tree_flatten(model.parameters()) if "embedding" not in k)
     print(f"Training a transformer with {nparams / 1024**2:.3f} M parameters")
 
-    optimizer = optim.AdamW(learning_rate=3e-4, betas=[0.9, 0.95])
+    optimizer = optim.AdamW(learning_rate=3e-4, betas=[0.9, 0.95], eps=1e-8, weight_decay=0.1)
 
     def loss_fn(model, x, y, reduce=True):
         logits = model(x)
