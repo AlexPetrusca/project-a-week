@@ -4,7 +4,7 @@ import numpy as np
 import tiktoken
 
 
-def generate_transformer_dataset(file_path, train_split_ratio=0.9, sequence_length=1024):
+def load(file_path, tokenizer=None, sequence_length=1024, train_split_ratio=0.9):
     # Ensure the file exists
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"The file {file_path} does not exist.")
@@ -13,10 +13,9 @@ def generate_transformer_dataset(file_path, train_split_ratio=0.9, sequence_leng
     with open(file_path, 'r', encoding='utf-8') as file:
         text = file.read()
 
-    # Initialize tokenizer (using cl100k_base which works for GPT-3.5 and GPT-4)
-    tokenizer = tiktoken.get_encoding('gpt2')
-
     # Tokenize the entire text
+    if tokenizer is None:
+        tokenizer = tiktoken.get_encoding('gpt2') # default to gpt2
     tokens = tokenizer.encode(text)
 
     # Calculate split indices
