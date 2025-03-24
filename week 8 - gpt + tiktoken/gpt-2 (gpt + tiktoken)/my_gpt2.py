@@ -1,66 +1,51 @@
+import os
 import math
 import time
 from dataclasses import dataclass
-from datetime import datetime
 
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
 
-import tiktoken
-from transformers import GPT2LMHeadModel
-
+# -----------------------------------------------------------------------------
 
 class CausalSelfAttention(nn.Module):
 
     def __init__(self, config):
         super().__init__()
-        self.n_head = config.n_head
-        self.n_embd = config.n_embd
-
-        assert self.n_embd % self.n_head == 0
-
+        assert config.n_embd % config.n_head == 0
         # key, query, value projections for all heads, but in a batch
         self.c_attn = nn.Linear(config.n_embd, 3 * config.n_embd)
         # output projection
         self.c_proj = nn.Linear(config.n_embd, config.n_embd)
         self.c_proj.NANOGPT_SCALE_INIT = 1
-        # not really a 'bias', more of a mask, but following the OpenAI/HF naming though
-        #   - NOTE: specifically, a tril mask to ensure causality
-        #   - NOTE: tril mask basically answers the question "does query q_t (row) have access to key k_t (column)?"
-        self.register_buffer('bias', torch.tril(torch.ones(config.block_size, config.block_size))
-                                           .view(1, 1, config.block_size, config.block_size))
+        # regularization
+        self.n_head = config.n_head
+        self.n_embd = config.n_embd
 
     def forward(self, x):
-        B, T, C = x.size()
-        # calculate query, key, values for all heads in batch and calculate output of all heads in batch
+        B, T, C = x.size() # batch size, sequence length, embedding dimensionality (n_embd)
+        # calculate query, key, values for all heads in batch and move head forward to be the batch dim
         # nh is "number of heads", hs is "head size", and C (number of channels) = nh * hs
         # e.g. in GPT-2 (124M), n_head=12, hs=64, so nh*hs=C=768 channels in the Transformer
-        qkv = self.c_attn(x) # (B, T, 3C)
-        q, k, v = qkv.split(self.n_embd, dim=2) # each (B, T, C)
+        qkv = self.c_attn(x)
+        q, k, v = qkv.split(self.n_embd, dim=2)
         k = k.view(B, T, self.n_head, C // self.n_head).transpose(1, 2) # (B, nh, T, hs)
         q = q.view(B, T, self.n_head, C // self.n_head).transpose(1, 2) # (B, nh, T, hs)
         v = v.view(B, T, self.n_head, C // self.n_head).transpose(1, 2) # (B, nh, T, hs)
-        # attention (materializes the large (T, T) matrix for all the queries and keys)
-        #   - NOTE: the matrix is "semantically" of shape (queries, key)
-        att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1))) # (B, nh, T, hs) x (B, nh, hs, T) -> (B, nh, T, T)
-        att = att.masked_fill(self.bias[:, :, :T, :T] == 0, float('-inf')) # NOTE: mask out affinities that aren't causal
-        att = F.softmax(att, dim=-1) # NOTE: convert affinities to probabilities (-inf -> 0%)
-        y = att @ v # (B, nh, T, T) x (B, nh, T, hs) -> (B, nh, T, hs)  # NOTE: weighted sum of values of the tokens based on attention
-        # y = F.scaled_dot_product_attention(q, k, v, is_causal=True) # flash attention
+        y = F.scaled_dot_product_attention(q, k, v, is_causal=True) # flash attention
         y = y.transpose(1, 2).contiguous().view(B, T, C) # re-assemble all head outputs side by side
         # output projection
         y = self.c_proj(y)
         return y
 
-
 class MLP(nn.Module):
 
     def __init__(self, config):
         super().__init__()
-        self.c_fc = nn.Linear(config.n_embd, 4 * config.n_embd)
-        self.gelu = nn.GELU(approximate='tanh')  # Note: only using tanh approximation because GPT-2 used it
-        self.c_proj = nn.Linear(4 * config.n_embd, config.n_embd)
+        self.c_fc    = nn.Linear(config.n_embd, 4 * config.n_embd)
+        self.gelu    = nn.GELU(approximate='tanh')
+        self.c_proj  = nn.Linear(4 * config.n_embd, config.n_embd)
         self.c_proj.NANOGPT_SCALE_INIT = 1
 
     def forward(self, x):
@@ -68,7 +53,6 @@ class MLP(nn.Module):
         x = self.gelu(x)
         x = self.c_proj(x)
         return x
-
 
 class Block(nn.Module):
 
@@ -80,28 +64,21 @@ class Block(nn.Module):
         self.mlp = MLP(config)
 
     def forward(self, x):
-        # Note: the layer normalizations are not applied to the residual pathway
-        #   - this keeps the residual pathways clean, which is desirable from an optimization perspective
-        # Note: `mlp ~= map` & `attn ~= reduce`. transformer can be viewed as repeated applications of map/reduce.
         x = x + self.attn(self.ln_1(x))
         x = x + self.mlp(self.ln_2(x))
         return x
 
-
 @dataclass
 class GPTConfig:
     block_size: int = 1024 # max sequence length
-    vocab_size: int = 50257 # number of tokens: 50,000 BPE merges + 256 byte tokes + 1<|endoftext|>
+    vocab_size: int = 50257 # number of tokens: 50,000 BPE merges + 256 bytes tokens + 1 <|endoftext|> token
     n_layer: int = 12 # number of layers
     n_head: int = 12 # number of heads
     n_embd: int = 768 # embedding dimension
-    # NOTE: head_size = n_embd / n_head = 64  # embedding dimension of each attention head
 
-
-# NOTE: the structure of this class mirrors HuggingFace's GPT2LMHeadModel, so that we can cross-load its parameters
 class GPT(nn.Module):
 
-    def __init__(self, config: GPTConfig):
+    def __init__(self, config):
         super().__init__()
         self.config = config
 
@@ -113,17 +90,17 @@ class GPT(nn.Module):
         ))
         self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=False)
 
-        # weight sharing scheme (refer to [1] in play.ipynb)
+        # weight sharing scheme
         self.transformer.wte.weight = self.lm_head.weight
 
         # init params
-        self.apply(self._init_weights) # calls _init_weights on all the submodules of this module
+        self.apply(self._init_weights)
 
     def _init_weights(self, module):
         if isinstance(module, nn.Linear):
             std = 0.02
             if hasattr(module, 'NANOGPT_SCALE_INIT'):
-                std *= (2 * self.config.n_layer) ** -0.5  # residual scaling (refer to [2] in play.ipynb)
+                std *= (2 * self.config.n_layer) ** -0.5
             torch.nn.init.normal_(module.weight, mean=0.0, std=std)
             if module.bias is not None:
                 torch.nn.init.zeros_(module.bias)
@@ -134,11 +111,11 @@ class GPT(nn.Module):
         # idx is of shape (B, T)
         B, T = idx.size()
         assert T <= self.config.block_size, f"Cannot forward sequence of length {T}, block size is only {self.config.block_size}"
-        # forward the token and position embeddings
+        # forward the token and posisition embeddings
         pos = torch.arange(0, T, dtype=torch.long, device=idx.device) # shape (T)
         pos_emb = self.transformer.wpe(pos) # position embeddings of shape (T, n_embd)
         tok_emb = self.transformer.wte(idx) # token embeddings of shape (B, T, n_embd)
-        x = tok_emb + pos_emb # (B, T, n_embd) + (T, n_embd) -> (B, T, n_embd)
+        x = tok_emb + pos_emb
         # forward the blocks of the transformer
         for block in self.transformer.h:
             x = block(x)
@@ -147,46 +124,43 @@ class GPT(nn.Module):
         logits = self.lm_head(x) # (B, T, vocab_size)
         loss = None
         if targets is not None:
-            flat_logits = logits.view(-1, logits.size(-1)) # (B, T, vocab_size) -> (B*T, vocab_size)
-            flat_targets = targets.view(-1) # (B, T) -> (B * T,)
-            loss = F.cross_entropy(flat_logits, flat_targets)
+            loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1))
         return logits, loss
 
     @classmethod
     def from_pretrained(cls, model_type):
         """Loads pretrained GPT-2 model weights from huggingface"""
         assert model_type in {'gpt2', 'gpt2-medium', 'gpt2-large', 'gpt2-xl'}
-        print(f"loading weights from pretrained gpt: {model_type}")
+        from transformers import GPT2LMHeadModel
+        print("loading weights from pretrained gpt: %s" % model_type)
 
         # n_layer, n_head and n_embd are determined from model_type
         config_args = {
-            'gpt2': dict(n_layer=12, n_head=12, n_embd=768),  # 124M params
-            'gpt2-medium': dict(n_layer=24, n_head=16, n_embd=1024),  # 350M params
-            'gpt2-large': dict(n_layer=36, n_head=20, n_embd=1280),  # 774M params
-            'gpt2-xl': dict(n_layer=48, n_head=25, n_embd=1600),  # 1558M params
+            'gpt2':         dict(n_layer=12, n_head=12, n_embd=768),  # 124M params
+            'gpt2-medium':  dict(n_layer=24, n_head=16, n_embd=1024), # 350M params
+            'gpt2-large':   dict(n_layer=36, n_head=20, n_embd=1280), # 774M params
+            'gpt2-xl':      dict(n_layer=48, n_head=25, n_embd=1600), # 1558M params
         }[model_type]
-        config_args['vocab_size'] = 50257  # always 50257 for GPT model checkpoints
-        config_args['block_size'] = 1024  # always 1024 for GPT model checkpoints
-
+        config_args['vocab_size'] = 50257 # always 50257 for GPT model checkpoints
+        config_args['block_size'] = 1024 # always 1024 for GPT model checkpoints
         # create a from-scratch initialized minGPT model
         config = GPTConfig(**config_args)
         model = GPT(config)
         sd = model.state_dict()
         sd_keys = sd.keys()
-        sd_keys = [k for k in sd_keys if not k.endswith('.attn.bias')]  # discard this mask / buffer, not a param
+        sd_keys = [k for k in sd_keys if not k.endswith('.attn.bias')] # discard this mask / buffer, not a param
 
         # init a huggingface/transformers model
         model_hf = GPT2LMHeadModel.from_pretrained(model_type)
         sd_hf = model_hf.state_dict()
 
-        # copy while ensuring all the parameters are aligned and match in names and shapes
+        # copy while ensuring all of the parameters are aligned and match in names and shapes
         sd_keys_hf = sd_hf.keys()
         sd_keys_hf = [k for k in sd_keys_hf if not k.endswith('.attn.masked_bias')] # ignore these, just a buffer
         sd_keys_hf = [k for k in sd_keys_hf if not k.endswith('.attn.bias')] # same, just the mask (buffer)
         transposed = ['attn.c_attn.weight', 'attn.c_proj.weight', 'mlp.c_fc.weight', 'mlp.c_proj.weight']
         # basically the openai checkpoints use a "Conv1D" module, but we only want to use a vanilla Linear
         # this means that we have to transpose these weights when we import them
-        #   - NOTE: it's very interesting that this is the only difference between Conv1D and Linear
         assert len(sd_keys_hf) == len(sd_keys), f"mismatched keys: {len(sd_keys_hf)} != {len(sd_keys)}"
         for k in sd_keys_hf:
             if any(k.endswith(w) for w in transposed):
@@ -202,11 +176,6 @@ class GPT(nn.Module):
 
         return model
 
-
-# ----------------------------------------------------------------------------------------------------------------------
-
-
-    # add weight decay, only for 2D params
     def configure_optimizers(self, weight_decay, learning_rate):
         # start with all of the candidate parameters (that require grad)
         param_dict = {pn: p for pn, p in self.named_parameters()}
@@ -226,148 +195,208 @@ class GPT(nn.Module):
         # Create AdamW optimizer
         return torch.optim.AdamW(optim_groups, lr=learning_rate, betas=(0.9, 0.95), eps=1e-8)
 
+# -----------------------------------------------------------------------------
+import tiktoken
+import numpy as np
+
+def load_tokens(filename):
+    npt = np.load(filename)
+    npt = npt.astype(np.int32) # added after video
+    ptt = torch.tensor(npt, dtype=torch.long)
+    return ptt
 
 class DataLoaderLite:
-    def __init__(self, path, B, T):
+    def __init__(self, B, T, split):
         self.B = B
         self.T = T
+        assert split in {'train', 'val'}
 
-        # at init load tokens from disk and store them in memory
-        with open(path, 'r') as f:
-            text = f.read()
-        enc = tiktoken.get_encoding('gpt2')
-        tokens = enc.encode(text)
-        self.tokens = torch.tensor(tokens)
-        print(f"loaded {len(self.tokens)} tokens")
-        print(f"1 epoch = {len(self.tokens) // (B * T)} batches")
+        # get the shard filenames
+        data_root = "edu_fineweb10B"
+        shards = os.listdir(data_root)
+        shards = [s for s in shards if split in s]
+        shards = sorted(shards)
+        shards = [os.path.join(data_root, s) for s in shards]
+        self.shards = shards
+        assert len(shards) > 0, f"no shards found for split {split}"
+        print(f"found {len(shards)} shards for split {split}")
+        self.reset()
 
-        # state
+    def reset(self):
+        # state, init at shard zero
+        self.current_shard = 0
+        self.tokens = load_tokens(self.shards[self.current_shard])
         self.current_position = 0
 
     def next_batch(self):
         B, T = self.B, self.T
-        buf = self.tokens[self.current_position : self.current_position + B * T + 1]
+        buf = self.tokens[self.current_position : self.current_position+B*T+1]
         x = (buf[:-1]).view(B, T) # inputs
         y = (buf[1:]).view(B, T) # targets
         # advance the position in the tensor
         self.current_position += B * T
-        # if loading the next batch would be out of bounds, reset
+        # if loading the next batch would be out of bounds, advance to next shard
         if self.current_position + (B * T + 1) > len(self.tokens):
+            self.current_shard = (self.current_shard + 1) % len(self.shards)
+            self.tokens = load_tokens(self.shards[self.current_shard])
             self.current_position = 0
         return x, y
 
+# -----------------------------------------------------------------------------
 
-if __name__ == "__main__":
-    # pytorch settings
-    torch.manual_seed(1337)
-    device = 'mps'
+# attempt to autodetect device
+device = "mps"
+print(f"using device: {device}")
 
-    # hyperparameters
-    gpt_config = GPTConfig(vocab_size=50304) # nicer number runs faster!
-    total_batch_size = 2**16 #2**19
-    B = 8 # micro batch size
-    T = gpt_config.block_size # micro batch size
-    assert total_batch_size % (B * T) == 0, "make sure total_batch_size is divisible by B * T"
-    grad_accum_steps = total_batch_size // (B * T)
-    print(f"total desired batch size: {total_batch_size}")
-    print(f"=> calculated gradient accumulation steps: {grad_accum_steps}")
+torch.manual_seed(1337)
 
-    # create data loader and model
-    train_loader = DataLoaderLite('res/tinyshakespeare.txt', B, T)
-    model = GPT(config=gpt_config)
-    model.to(device)
+enc = tiktoken.get_encoding("gpt2")
 
-    def train():
-        # learning rate scheduler - cosine decay
-        max_lr = 6e-4 * 3
-        min_lr = max_lr * 0.1
-        warmup_steps = 10
-        max_steps = 50
-        def get_lr(it):
-            # 1) linear warmup for warmup_iters steps
-            if it < warmup_steps:
-                return max_lr * (it+1) / warmup_steps
-            # 2) if it > lr_decay_iters, return min learning rate
-            if it > max_steps:
-                return min_lr
-            # 3) in between, use cosine decay down to min learning rate
-            decay_ratio = (it - warmup_steps) / (max_steps - warmup_steps)
-            assert 0 <= decay_ratio <= 1
-            coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio)) # coeff starts at 1 and goes to 0
-            return min_lr + coeff * (max_lr - min_lr)
+B = 8 # micro batch size
+T = 1024 # sequence length
+total_batch_size = 64 * B * T // 16
+assert total_batch_size % (B * T) == 0, "make sure total_batch_size is divisible by B * T * ddp_world_size"
+grad_accum_steps = total_batch_size // (B * T)
+print(f"total desired batch size: {total_batch_size}")
+print(f"=> calculated gradient accumulation steps: {grad_accum_steps}")
 
-        # optimize!
-        optimizer = model.configure_optimizers(weight_decay=0.1, learning_rate=6e-4)
-        start = datetime.now()
-        for step in range(max_steps):
-            t0 = time.time()
+train_loader = DataLoaderLite(B=B, T=T, split="train")
+val_loader = DataLoaderLite(B=B, T=T, split="val")
 
-            # compute logits, compute loss, backward the loss
-            optimizer.zero_grad()
-            loss_accum = 0.0
-            for micro_step in range(grad_accum_steps):
-                # load next batch
-                x, y = train_loader.next_batch()
-                x, y = x.to(device), y.to(device)
-                # accumulate gradients
-                with torch.autocast(device_type=device, dtype=torch.float16):
-                    logits, loss = model(x, y)
-                loss = loss / grad_accum_steps # refer to [3] in play.ipynb
-                loss_accum += loss.detach()
-                loss.backward()
+torch.set_float32_matmul_precision('high')
 
-            # clip grads to a max norm
-            norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-            # determine and set the learning rate for this iteration
-            lr = get_lr(step)
-            for param_group in optimizer.param_groups:
-                param_group['lr'] = lr
+# create model
+model = GPT(GPTConfig(vocab_size=50304))
+# model = GPT.from_pretrained("gpt2") # or init from OpenAI GPT-2
+model.to(device)
 
-            # update parameters
-            optimizer.step()
+max_lr = 6e-4
+min_lr = max_lr * 0.1
+warmup_steps = 715
+max_steps = 19073 # 19,073 steps is ~1 epoch, if data is 10B tokens and batch size 0.5M tokens
+def get_lr(it):
+    # 1) linear warmup for warmup_iters steps
+    if it < warmup_steps:
+        return max_lr * (it+1) / warmup_steps
+    # 2) if it > lr_decay_iters, return min learning rate
+    if it > max_steps:
+        return min_lr
+    # 3) in between, use cosine decay down to min learning rate
+    decay_ratio = (it - warmup_steps) / (max_steps - warmup_steps)
+    assert 0 <= decay_ratio <= 1
+    coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio)) # coeff starts at 1 and goes to 0
+    return min_lr + coeff * (max_lr - min_lr)
 
-            t1 = time.time()
-            dt = (t1 - t0) * 1000 # time difference in milliseconds
-            tokens_per_sec = (train_loader.B * train_loader.T * grad_accum_steps) / (t1 - t0)
-            iterations_per_sec = 1 / (t1 - t0)
-            print(f"{datetime.now()} - step {step}, loss: {loss_accum:.4f}, lr: {lr:.4e}, norm: {norm:.4f}, dt: {dt:.2f}ms, tok/sec: {tokens_per_sec:.2f} tokens/sec")
+# optimize!
+optimizer = model.configure_optimizers(weight_decay=0.1, learning_rate=max_lr)
 
-        end = datetime.now()
-        print(f"total time: {end - start}")
-        print(f"average tokens/sec: {(train_loader.B * train_loader.T * max_steps * grad_accum_steps) / (end.timestamp() - start.timestamp())}")
+# create the log directory we will write checkpoints to and log to
+log_dir = "log"
+os.makedirs(log_dir, exist_ok=True)
+log_file = os.path.join(log_dir, f"log.txt")
+with open(log_file, "w") as f: # open for writing to clear the file
+    pass
 
-    def generate(num_return_sequences = 5, max_length = 30):
-        # encode prefix tokens
-        enc = tiktoken.get_encoding('gpt2')
-        tokens = enc.encode("Hello, I'm a language model,")
-        tokens = torch.tensor(tokens, dtype=torch.long)  # (8 tokens,)
-        tokens = tokens.unsqueeze(0).repeat(num_return_sequences, 1)  # (5 rows, 8 tokens)
-        x = tokens.to(device)
+for step in range(max_steps):
+    t0 = time.time()
+    last_step = (step == max_steps - 1)
 
-        # generate! right now x is (B, T) where B = 5, T = 8
+    # once in a while evaluate our validation loss
+    if step % 250 == 0 or last_step:
         model.eval()
-        while x.size(1) < max_length:
+        val_loader.reset()
+        with torch.no_grad():
+            val_loss_accum = 0.0
+            val_loss_steps = 20
+            for _ in range(val_loss_steps):
+                x, y = val_loader.next_batch()
+                x, y = x.to(device), y.to(device)
+                with torch.autocast(device_type=device, dtype=torch.bfloat16):
+                    logits, loss = model(x, y)
+                loss = loss / val_loss_steps
+                val_loss_accum += loss.detach()
+
+        print(f"validation loss: {val_loss_accum.item():.4f}")
+        with open(log_file, "a") as f:
+            f.write(f"{step} val {val_loss_accum.item():.4f}\n")
+        if step > 0 and (step % 5000 == 0 or last_step):
+            # optionally write model checkpoints
+            checkpoint_path = os.path.join(log_dir, f"model_{step:05d}.pt")
+            checkpoint = {
+                'model': model.state_dict(),
+                'config': model.config,
+                'step': step,
+                'val_loss': val_loss_accum.item()
+            }
+            # you might also want to add optimizer.state_dict() and
+            # rng seeds etc., if you wanted to more exactly resume training
+            torch.save(checkpoint, checkpoint_path)
+
+    # once in a while generate from the model (except step 0, which is noise)
+    if ((step > 0 and step % 250 == 0) or last_step):
+        model.eval()
+        num_return_sequences = 4
+        max_length = 32
+        tokens = enc.encode("Hello, I'm a language model,")
+        tokens = torch.tensor(tokens, dtype=torch.long)
+        tokens = tokens.unsqueeze(0).repeat(num_return_sequences, 1)
+        xgen = tokens.to(device)
+        sample_rng = torch.Generator(device=device)
+        sample_rng.manual_seed(42)
+        while xgen.size(1) < max_length:
             # forward the model to get the logits
             with torch.no_grad():
-                logits = model(x)[0]  # (B, T, vocab_size)
+                with torch.autocast(device_type=device, dtype=torch.bfloat16):
+                    logits, loss = model(xgen) # (B, T, vocab_size)
                 # take the logits at the last position
-                logits = logits[:, -1, :]  # (B, vocab_size)
+                logits = logits[:, -1, :] # (B, vocab_size)
                 # get the probabilities
                 probs = F.softmax(logits, dim=-1)
                 # do top-k sampling of 50 (huggingface pipeline default)
-                topk_probs, topk_indices = torch.topk(probs, 50, dim=-1)  # (B, 50) & (B, 50)
+                # topk_probs here becomes (5, 50), topk_indices is (5, 50)
+                topk_probs, topk_indices = torch.topk(probs, 50, dim=-1)
                 # select a token from the top-k probabilities
-                ix = torch.multinomial(topk_probs, num_samples=1)  # (B, 1)
+                # note: multinomial does not demand the input to sum to 1
+                ix = torch.multinomial(topk_probs, 1, generator=sample_rng) # (B, 1)
                 # gather the corresponding indices
-                xcol = torch.gather(topk_indices, dim=-1, index=ix)  # (B, 1)
+                xcol = torch.gather(topk_indices, -1, ix) # (B, 1)
                 # append to the sequence
-                x = torch.cat((x, xcol), dim=1)
-
+                xgen = torch.cat((xgen, xcol), dim=1)
         # print the generated text
         for i in range(num_return_sequences):
-            tokens = x[i, :max_length].tolist()
+            tokens = xgen[i, :max_length].tolist()
             decoded = enc.decode(tokens)
-            print(">", decoded)
+            print(f"sample {i}: {decoded}")
 
-    train()
-    # generate()
+    # do one step of the optimization
+    model.train()
+    optimizer.zero_grad()
+    loss_accum = 0.0
+    for micro_step in range(grad_accum_steps):
+        x, y = train_loader.next_batch()
+        x, y = x.to(device), y.to(device)
+        # added after video, this field is also used by the forward pass.
+        with torch.autocast(device_type=device, dtype=torch.bfloat16):
+            logits, loss = model(x, y)
+        # we have to scale the loss to account for gradient accumulation,
+        # because the gradients just add on each successive backward().
+        # addition of gradients corresponds to a SUM in the objective, but
+        # instead of a SUM we want MEAN. Scale the loss here so it comes out right
+        loss = loss / grad_accum_steps
+        loss_accum += loss.detach()
+        loss.backward()
+
+    norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+    # determine and set the learning rate for this iteration
+    lr = get_lr(step)
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = lr
+    optimizer.step()
+
+    t1 = time.time()
+    dt = t1 - t0 # time difference in seconds
+    tokens_processed = train_loader.B * train_loader.T * grad_accum_steps
+    tokens_per_sec = tokens_processed / dt
+    print(f"step {step:5d} | loss: {loss_accum.item():.6f} | lr {lr:.4e} | norm: {norm:.4f} | dt: {dt*1000:.2f}ms | tok/sec: {tokens_per_sec:.2f}")
+    with open(log_file, "a") as f:
+        f.write(f"{step} train {loss_accum.item():.6f}\n")

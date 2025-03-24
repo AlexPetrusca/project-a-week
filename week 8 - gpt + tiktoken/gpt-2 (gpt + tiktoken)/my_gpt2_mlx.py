@@ -188,7 +188,7 @@ if __name__ == "__main__":
         return loss
 
     start = datetime.now()
-    num_epochs = 100
+    num_epochs = 1000
     for i in range(num_epochs):
         t0 = time.time()
         x, y = train_loader.next_batch()
@@ -224,18 +224,15 @@ if __name__ == "__main__":
             # get the probabilities
             probs = nn.softmax(logits, axis=-1)
 
-            # do top-k sampling of 50 (huggingface pipeline default)
-            k = 50  # Number of top elements
-            # Get the sorted indices in descending order
-            topk_indices = mx.argsort(probs, axis=-1)[:, -k:] # (B, 50)
-            # Use the indices to gather the top K values
-            topk_probs = mx.take_along_axis(probs, indices=topk_indices, axis=-1) # (B, 50)
+            # get the top k probabilities
+            k = 50
+            topk_indices = mx.argsort(logits, axis=-1)[:, -k:]
+            topk_logits = mx.sort(logits, axis=-1)[:, -k:]
 
-            # select a token from the top-k probabilities
-            ix = mx.random.categorical(topk_probs, num_samples=1)  # (B, 1)
-            # gather the corresponding indices
-            xcol = mx.take_along_axis(topk_indices, indices=ix, axis=-1)  # (B, 1)
-            # append to the sequence
+            # select a token from the top probabilities
+            ix = mx.random.categorical(topk_logits, num_samples=1)  # (B, 1)
+            xcol = mx.take_along_axis(topk_indices, indices=ix, axis=-1)
+
             x = mx.concatenate([x, xcol], axis=1)
 
         # print the generated text
