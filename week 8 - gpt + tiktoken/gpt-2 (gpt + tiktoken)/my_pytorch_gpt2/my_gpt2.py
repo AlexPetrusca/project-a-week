@@ -3,11 +3,14 @@ import math
 import time
 from dataclasses import dataclass
 
+import tiktoken
+import numpy as np
+
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
 
-# -----------------------------------------------------------------------------
+#-----------------------------------------------------------------------------------------------------------------------
 
 class CausalSelfAttention(nn.Module):
 
@@ -195,9 +198,7 @@ class GPT(nn.Module):
         # Create AdamW optimizer
         return torch.optim.AdamW(optim_groups, lr=learning_rate, betas=(0.9, 0.95), eps=1e-8)
 
-# -----------------------------------------------------------------------------
-import tiktoken
-import numpy as np
+#-----------------------------------------------------------------------------------------------------------------------
 
 def load_tokens(filename):
     npt = np.load(filename)
@@ -212,7 +213,7 @@ class DataLoaderLite:
         assert split in {'train', 'val'}
 
         # get the shard filenames
-        data_root = "edu_fineweb10B"
+        data_root = "../res/edu_fineweb10B"
         shards = os.listdir(data_root)
         shards = [s for s in shards if split in s]
         shards = sorted(shards)
@@ -242,7 +243,7 @@ class DataLoaderLite:
             self.current_position = 0
         return x, y
 
-# -----------------------------------------------------------------------------
+#-----------------------------------------------------------------------------------------------------------------------
 
 # attempt to autodetect device
 device = "mps"

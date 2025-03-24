@@ -1,10 +1,13 @@
 import math
+import os
 import time
 from dataclasses import dataclass
 from datetime import datetime
 from functools import partial
 
 import tiktoken
+import numpy as np
+
 import mlx.core as mx
 import mlx.nn as nn
 import mlx.nn.losses as F
@@ -54,7 +57,6 @@ class CausalSelfAttention(nn.Module):
         mask = mask.astype(dtype) * mx.finfo(dtype).min
         return mask
 
-
 class MLP(nn.Module):
     def __init__(self, config):
         super().__init__()
@@ -67,7 +69,6 @@ class MLP(nn.Module):
         x = self.gelu(x)
         x = self.c_proj(x)
         return x
-
 
 class Block(nn.Module):
     def __init__(self, config):
@@ -82,7 +83,6 @@ class Block(nn.Module):
         x = x + self.mlp(self.ln_2(x))
         return x
 
-
 @dataclass
 class GPTConfig:
     block_size: int = 1024 # max sequence length
@@ -92,7 +92,6 @@ class GPTConfig:
     n_embd: int = 768 # embedding dimension
     dtype = mx.bfloat16
     # NOTE: head_size = n_embd / n_head = 64  # embedding dimension of each attention head
-
 
 class GPT(nn.Module):
     def __init__(self, config):
@@ -126,52 +125,73 @@ class GPT(nn.Module):
         x = self.transformer['ln_f'](x)
         return self.lm_head(x)  # (B, T, vocab_size)
 
-
 #-----------------------------------------------------------------------------------------------------------------------
 
+def load_tokens(filename):
+    npt = np.load(filename)
+    npt = npt.astype(np.int32) # added after video
+    ptt = mx.array(npt, dtype=mx.uint32)
+    return ptt
 
 class DataLoaderLite:
-    def __init__(self, path, batch_shape):
-        self.B = batch_shape[0]
-        self.T = batch_shape[1]
+    def __init__(self, B, T, split):
+        self.B = B
+        self.T = T
+        assert split in {'train', 'val'}
 
-        # at init load tokens from disk and store them in memory
-        with open(path, 'r') as f:
-            text = f.read()
-        enc = tiktoken.get_encoding('gpt2')
-        tokens = enc.encode(text)
-        self.tokens = mx.array(tokens)
-        print(f"loaded {len(self.tokens)} tokens")
-        print(f"1 epoch = {len(self.tokens) // (self.B * self.T)} batches")
+        # get the shard filenames
+        data_root = "../res/edu_fineweb10B"
+        shards = os.listdir(data_root)
+        shards = [s for s in shards if split in s]
+        shards = sorted(shards)
+        shards = [os.path.join(data_root, s) for s in shards]
+        self.shards = shards
+        assert len(shards) > 0, f"no shards found for split {split}"
+        print(f"found {len(shards)} shards for split {split}")
+        self.reset()
 
-        # state
+    def reset(self):
+        # state, init at shard zero
+        self.current_shard = 0
+        self.tokens = load_tokens(self.shards[self.current_shard])
         self.current_position = 0
 
     def next_batch(self):
         B, T = self.B, self.T
-        buf = self.tokens[self.current_position : self.current_position + B * T + 1]
-        x = (buf[:-1]).reshape((B, T)) # inputs
-        y = (buf[1:]).reshape((B, T)) # targets
+        buf = self.tokens[self.current_position : self.current_position+B*T+1]
+        x = (buf[:-1]).reshape(B, T) # inputs
+        y = (buf[1:]).reshape(B, T) # targets
         # advance the position in the tensor
         self.current_position += B * T
-        # if loading the next batch would be out of bounds, reset
+        # if loading the next batch would be out of bounds, advance to next shard
         if self.current_position + (B * T + 1) > len(self.tokens):
+            self.current_shard = (self.current_shard + 1) % len(self.shards)
+            self.tokens = load_tokens(self.shards[self.current_shard])
             self.current_position = 0
         return x, y
 
+#-----------------------------------------------------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    n_batch = 10
-
     gpt_config = GPTConfig()
-    train_loader = DataLoaderLite('res/tinyshakespeare.txt', (16, gpt_config.block_size))
 
+    enc = tiktoken.get_encoding("gpt2")
+
+    # data loaders
+    B = 8  # micro batch size
+    T = 1024  # sequence length
+
+    train_loader = DataLoaderLite(B=B, T=T, split="train")
+    val_loader = DataLoaderLite(B=B, T=T, split="val")
+
+    # model
     model = GPT(gpt_config)
     model.set_dtype(gpt_config.dtype)
     mx.eval(model.parameters())
     nparams = sum(x.size for k, x in tree_flatten(model.parameters()) if "embedding" not in k)
     print(f"Training a transformer with {nparams / 1024**2:.3f} M parameters")
 
+    # optimizer
     optimizer = optim.AdamW(learning_rate=3e-4, betas=[0.9, 0.95], eps=1e-8, weight_decay=0.1)
 
     def loss_fn(model, x, y, reduce=True):
@@ -181,44 +201,22 @@ if __name__ == "__main__":
 
     state = [model.state, optimizer.state]
     @partial(mx.compile, inputs=state, outputs=state)
-    def step(inputs, targets):
+    def optimizer_step(inputs, targets):
         loss_and_grad_fn = nn.value_and_grad(model, loss_fn)
         loss, grads = loss_and_grad_fn(model, inputs, targets)
         optimizer.update(model, grads)
         return loss
 
-    start = datetime.now()
-    num_epochs = 1000
-    for i in range(num_epochs):
-        t0 = time.time()
-        x, y = train_loader.next_batch()
-
-        loss = step(x, y)
-        mx.eval(state)
-
-        t1 = time.time()
-        dt = (t1 - t0) * 1000  # time difference in milliseconds
-        tokens_per_sec = (train_loader.B * train_loader.T) / (t1 - t0)
-        iterations_per_sec = 1 / (t1 - t0)
-        print(f"{datetime.now()} - step {i}, loss: {loss:.4f}, dt: {dt:.2f}ms, tok/sec: {tokens_per_sec:.2f} tokens/sec")
-
-    end = datetime.now()
-    print(f"total time: {end - start}")
-    print(f"average tokens/sec: {(train_loader.B * train_loader.T * num_epochs) / (end.timestamp() - start.timestamp())}")
-
-    def generate(num_return_sequences = 5, max_length = 30):
-        # encode prefix tokens
-        enc = tiktoken.get_encoding('gpt2')
-        # tokens = enc.encode("Hello, I'm a language model,")
-        tokens = enc.encode("hello")
-        tokens = mx.array(tokens, dtype=mx.int32)  # (8 tokens,)
-        x = mx.repeat(mx.expand_dims(tokens, axis=0), num_return_sequences, axis=0)  # (5 rows, 8 tokens)
-
-        # generate! right now x is (B, T) where B = 5, T = 8
+    def generate_step(step):
         model.eval()
-        while x.shape[1] < max_length:
+        num_return_sequences = 4
+        max_length = 32
+        tokens = enc.encode("Hello, I'm a language model,")
+        tokens = mx.array(tokens, dtype=mx.int32)  # (8 tokens,)
+        xgen = mx.repeat(mx.expand_dims(tokens, axis=0), num_return_sequences, axis=0)  # (5 rows, 8 tokens)
+        while xgen.shape[1] < max_length:
             # forward the model to get the logits
-            logits = model(x)  # (B, T, vocab_size)
+            logits = model(xgen)  # (B, T, vocab_size)
             # take the logits at the last position
             logits = logits[:, -1, :]  # (B, vocab_size)
             # get the probabilities
@@ -233,12 +231,67 @@ if __name__ == "__main__":
             ix = mx.random.categorical(topk_logits, num_samples=1)  # (B, 1)
             xcol = mx.take_along_axis(topk_indices, indices=ix, axis=-1)
 
-            x = mx.concatenate([x, xcol], axis=1)
-
+            xgen = mx.concatenate([xgen, xcol], axis=1)
         # print the generated text
         for i in range(num_return_sequences):
-            tokens = x[i, :max_length].tolist()
+            tokens = xgen[i, :max_length].tolist()
             decoded = enc.decode(tokens)
-            print(">", decoded)
+            print(f"sample {i}: {decoded}")
 
-    generate()
+    def validation_step(step):
+        model.eval()
+        val_loader.reset()
+        val_loss_accum = 0.0
+        val_loss_steps = 20
+        for _ in range(val_loss_steps):
+            x, y = val_loader.next_batch()
+            loss = loss_fn(model, x, y) / val_loss_steps
+            val_loss_accum += loss
+
+        print(f"validation loss: {val_loss_accum.item():.4f}")
+        with open(log_file, "a") as f:
+            f.write(f"{step} val {val_loss_accum.item():.4f}\n")
+
+    max_steps = 19073  # 19,073 steps is ~1 epoch, if data is 10B tokens and batch size 0.5M tokens
+    def train_step(step):
+        t0 = time.time()
+        last_step = (step == max_steps - 1)
+
+        # once in a while evaluate our validation loss
+        if step % 250 == 0 or last_step:
+            validation_step(step)
+
+        # once in a while generate from the model (except step 0, which is noise)
+        if (step > 0 and step % 50 == 0) or last_step:
+            generate_step(step)
+
+        # do one step of the optimization
+        model.train()
+        x, y = train_loader.next_batch()
+        loss = optimizer_step(x, y)
+        mx.eval(state)
+
+        t1 = time.time()
+        dt = t1 - t0  # time difference in seconds
+        tokens_processed = train_loader.B * train_loader.T
+        tokens_per_sec = tokens_processed / dt
+        print(
+            f"step {step:5d} | loss: {loss:.6f} | dt: {dt * 1000:.2f}ms | tok/sec: {tokens_per_sec:.2f}")
+        with open(log_file, "a") as f:
+            f.write(f"{step} train {loss:.6f}\n")
+
+    # create the log directory we will write checkpoints to and log to
+    log_dir = "my_mlx_impl/log"
+    os.makedirs(log_dir, exist_ok=True)
+    log_file = os.path.join(log_dir, f"log.txt")
+    with open(log_file, "w") as f:  # open for writing to clear the file
+        pass
+
+    # train
+    start = datetime.now()
+    num_epochs = 1000
+    for i in range(num_epochs):
+        train_step(i)
+    end = datetime.now()
+    print(f"total time: {end - start}")
+    print(f"average tokens/sec: {(train_loader.B * train_loader.T * num_epochs) / (end.timestamp() - start.timestamp())}")
