@@ -20,11 +20,13 @@ class SGD(Optimizer):
 
         # update layers
         for i, layer in enumerate(self.network.layers):
-            batch_size = layer.ctx.dx_out.shape[0]
-            eta = self.eta / batch_size
-            for param in layer.params:
-                v_key = f"v{param.name}_{i}"
-                self.ctx[v_key] = self.momentum * self.ctx.get(v_key, 0) - self.weight_decay * eta * param.value - eta * param.grad
-                # param.value += self.ctx[v_key]
-                param.value = param.value + self.ctx[v_key]
-            layer.params.zero_grad()
+            if layer.trainable:
+                batch_size = layer.ctx.dx_out.shape[0]
+                eta = self.eta / batch_size
+                for param in layer.params:
+                    v_key = f"v{param.name}_{i}"
+                    self.ctx[v_key] = self.momentum * self.ctx.get(v_key, 0) - self.weight_decay * eta * param.value - eta * param.grad
+                    param.value = param.value + self.ctx[v_key]
+                layer.params.zero_grad()
+
+        return grad # gradient for the input
