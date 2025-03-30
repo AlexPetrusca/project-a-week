@@ -1,5 +1,6 @@
 from abc import ABC
 import mlx.core as mx
+from alpineml.Checkpoint import Checkpoint
 from alpineml.layer.Layer import Layer
 
 
@@ -36,3 +37,13 @@ class Network(ABC):
     def unfreeze(self):
         for layer in self.layers:
             layer.unfreeze()
+
+    def save(self):
+        raw_params = []
+        for layer in self.layers:
+            raw_params.append(layer.params)
+        return Checkpoint(raw_params)
+
+    def load(self, checkpoint):
+        for layer, params in zip(self.layers, checkpoint.params):
+            layer.params = params
