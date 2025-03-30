@@ -32,6 +32,12 @@ class Layer(ABC):
             self.ctx.dx_in = dx_in
         return dx_in
 
+    def freeze(self):
+        self.trainable = False
+
+    def unfreeze(self):
+        self.trainable = True
+
     @abstractmethod
     def _link(self):
         pass

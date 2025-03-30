@@ -28,3 +28,11 @@ class Network(ABC):
         layer.link(self.output_shape)
         self.layers.append(layer)
         self.output_shape = layer.output_shape
+
+    def freeze(self):
+        for layer in self.layers:
+            layer.freeze()
+
+    def unfreeze(self):
+        for layer in self.layers:
+            layer.unfreeze()
