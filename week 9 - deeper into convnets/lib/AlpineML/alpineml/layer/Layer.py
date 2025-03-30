@@ -9,6 +9,7 @@ class Layer(ABC):
         self.params: Layer.Parameters = Layer.Parameters()
         self.input_shape: Optional[tuple] = None
         self.output_shape: Optional[tuple] = None
+        self.trainable: bool = True
 
     def link(self, input_shape: tuple | int) -> None:
         if isinstance(input_shape, int):
@@ -70,7 +71,6 @@ class Layer(ABC):
         def __init__(self):
             super().__init__()
             self._params: dict[str, Layer.Parameter] = {}
-            self.trainable: bool = True
 
         def __getitem__(self, key: str) -> Optional[mx.array]:
             is_grad = key.startswith("d")
