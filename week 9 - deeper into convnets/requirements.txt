@@ -1,5 +1,7 @@
 numpy
 torch
+torchvision
 mlx
 matplotlib
+ipywidgets
 ./lib/AlpineML
