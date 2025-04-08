@@ -98,10 +98,12 @@ def deep_dream_simple(img_path, dump_path):
             loss += activation.mean()
         loss.backward()
 
-        # 3. gradient ascent (with some smoothing)
+        # 3. normalize the gradients
         img_tensor_grad = img_tensor.grad.data
         smooth_grads = img_tensor_grad / torch.std(img_tensor_grad)
-        img_tensor.data += learning_rate * smooth_grads  # gradient ascent
+
+        # 3. gradient ascent
+        img_tensor.data += learning_rate * smooth_grads
 
         img_tensor.grad.data.zero_()  # clear the gradients otherwise they would get accumulated
         if iter % 10 == 0:
@@ -129,11 +131,11 @@ def deep_dream_jitter(img_path, dump_path):
             loss += activation.mean()
         loss.backward()
 
-        # 3. apply jitter
-
-        # 3. gradient ascent (with some smoothing)
+        # 3. normalize the gradients
         img_tensor_grad = img_tensor.grad.data
         smooth_grads = img_tensor_grad / torch.std(img_tensor_grad)
+
+        # 4. gradient ascent
         img_tensor.data += learning_rate * smooth_grads  # gradient ascent
 
         img_tensor.grad.data.zero_()  # clear the gradients otherwise they would get accumulated
