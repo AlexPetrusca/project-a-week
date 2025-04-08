@@ -1,0 +1,10 @@
+numpy
+torch
+torchvision
+mlx
+matplotlib
+ipywidgets
+pillow
+scipy
+opencv-python
+imageio
