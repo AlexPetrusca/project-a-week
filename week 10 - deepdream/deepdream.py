@@ -84,7 +84,7 @@ def deep_dream_simple(img_path, dump_path):
     model = load_model()
 
     # hyperparameters
-    layers = ['features.29', 'features.11']
+    layers = ['features.29']
     n_iterations = 20
     learning_rate = 0.3
 
@@ -117,11 +117,22 @@ def deep_dream_jitter(img_path, dump_path):
     model = load_model()
 
     # hyperparameters
-    layers = ['features.29', 'features.11']
+    layers = ['features.29']
     n_iterations = 20
     learning_rate = 0.3
 
-    for iter in range(n_iterations):
+    # Adds stochasticity to the algorithm and makes the results more diverse
+    def random_circular_spatial_shift(tensor, h_shift, w_shift, should_undo=False):
+        if should_undo:
+            h_shift = -h_shift
+            w_shift = -w_shift
+        with torch.no_grad():
+            rolled = torch.roll(tensor, shifts=(h_shift, w_shift), dims=(2, 3))
+            rolled.requires_grad = True
+            return rolled
+
+    # One step of deep dream
+    def deep_dream_step(img_tensor, iter, layers, learning_rate, model):
         # 1. grab layer activations
         layer_activations = get_layer_activation(model, img_tensor, *layers)
 
@@ -137,13 +148,21 @@ def deep_dream_jitter(img_path, dump_path):
 
         # 4. gradient ascent
         img_tensor.data += learning_rate * smooth_grads  # gradient ascent
-
         img_tensor.grad.data.zero_()  # clear the gradients otherwise they would get accumulated
         if iter % 10 == 0:
             print(f'Iteration {iter}, loss: {loss:.4f}')
+
+    for iter in range(n_iterations):
+        h_shift, w_shift = np.random.randint(-32, 32 + 1, 2)
+        img_tensor = random_circular_spatial_shift(img_tensor, h_shift, w_shift)
+
+        deep_dream_step(img_tensor, iter, layers, learning_rate, model)
+
+        img_tensor = random_circular_spatial_shift(img_tensor, h_shift, w_shift, should_undo=True)
 
     write_image_tensor(dump_path, img_tensor)
     print(f'Saved naive deep dream image to {os.path.relpath(dump_path)}')
 
 
-deep_dream_jitter("input_image.png", "output_image.png")
+deep_dream_simple("input_image.png", "output_simple.png")
+deep_dream_jitter("input_image.png", "output_jitter.png")
