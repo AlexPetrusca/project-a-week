@@ -65,6 +65,8 @@ def load_model(model_name="vgg16"):
         model = models.resnet152(weights=models.ResNet152_Weights.IMAGENET1K_V2).to(DEVICE)
     elif model_name == "googlenet":
         model = models.googlenet(weights=models.GoogLeNet_Weights.IMAGENET1K_V1).to(DEVICE)
+    elif model_name == "densenet201":
+        model = models.densenet201(weights=models.DenseNet201_Weights.IMAGENET1K_V1).to(DEVICE)
     else:
         raise ValueError('Invalid model.')
 
@@ -344,8 +346,8 @@ def deep_dream_jitter_octaves_deblur(img_path, dump_path, model_name="vgg16", la
 
 # deep_dream_simple("in/starry_night.png", "output_simple.png", "vgg16")
 # deep_dream_jitter("in/starry_night.png", "output_jitter.png", "vgg16")
-deep_dream_jitter_octaves("in/starry_night.png", "output_jitter_9.png", "vgg16")
-deep_dream_jitter_octaves_deblur("in/starry_night.png", "output_jitter_9.png", "vgg16")
+deep_dream_jitter_octaves("in/starry_night.png", "output_jitter.png", "vgg16")
+deep_dream_jitter_octaves_deblur("in/starry_night.png", "output_jitter.png", "vgg16")
 
 # for i in range(0, 30):
     # deep_dream_jitter_octaves("in/starry_night.png", f"out/starry_night_resnet/blur_{i}.png", "vgg16", layers=[f'features.{i}'])
