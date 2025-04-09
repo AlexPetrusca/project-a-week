@@ -49,7 +49,9 @@ def write_image_tensor(img_path, img_tensor):
     # Send the PyTorch tensor back to CPU, detach it from the computational graph, convert to numpy
     # and make it channel last format again (calling ToTensor converted it to channel-first format)
     img = np.moveaxis(img_tensor.to('cpu').detach().numpy()[0], 0, 2)
-    img = (img * IMAGENET_STD) + IMAGENET_MEAN  # de-normalize
+    mean = IMAGENET_MEAN.reshape(1, 1, -1)
+    std = IMAGENET_STD.reshape(1, 1, -1)
+    img = (img * std) + mean  # de-normalize
     img = (np.clip(img, 0., 1.) * 255).astype(np.uint8)
 
     cv.imwrite(img_path, img[:, :, ::-1])  # ::-1 because opencv expects BGR (and not RGB) format...
@@ -120,6 +122,7 @@ def deep_dream_jitter(img_path, dump_path):
     layers = ['features.29']
     n_iterations = 20
     learning_rate = 0.3
+    jitter = 32
 
     # Adds stochasticity to the algorithm and makes the results more diverse
     def random_circular_spatial_shift(tensor, h_shift, w_shift, should_undo=False):
@@ -148,12 +151,13 @@ def deep_dream_jitter(img_path, dump_path):
 
         # 4. gradient ascent
         img_tensor.data += learning_rate * smooth_grads  # gradient ascent
+
         img_tensor.grad.data.zero_()  # clear the gradients otherwise they would get accumulated
         if iter % 10 == 0:
             print(f'Iteration {iter}, loss: {loss:.4f}')
 
     for iter in range(n_iterations):
-        h_shift, w_shift = np.random.randint(-32, 32 + 1, 2)
+        h_shift, w_shift = np.random.randint(-jitter, jitter + 1, 2)
         img_tensor = random_circular_spatial_shift(img_tensor, h_shift, w_shift)
 
         deep_dream_step(img_tensor, iter, layers, learning_rate, model)
@@ -163,6 +167,175 @@ def deep_dream_jitter(img_path, dump_path):
     write_image_tensor(dump_path, img_tensor)
     print(f'Saved naive deep dream image to {os.path.relpath(dump_path)}')
 
+def deep_dream_jitter_octaves(img_path, dump_path, layers=None):
+    img_tensor = read_image_tensor(img_path, target_shape=800)
+    base_shape = img_tensor.shape[2:]  # save initial height and width
+    model = load_model()
 
-deep_dream_simple("input_image.png", "output_simple.png")
-deep_dream_jitter("input_image.png", "output_jitter.png")
+    # hyperparameters
+    if layers is None:
+        layers = ['features.4']
+    octaves = 4
+    octave_scale = 1.8
+    n_iterations = 3
+    learning_rate = 0.1
+    jitter = 32
+
+    # Adds stochasticity to the algorithm and makes the results more diverse
+    def random_circular_spatial_shift(tensor, h_shift, w_shift, should_undo=False):
+        if should_undo:
+            h_shift = -h_shift
+            w_shift = -w_shift
+        with torch.no_grad():
+            rolled = torch.roll(tensor, shifts=(h_shift, w_shift), dims=(2, 3))
+            rolled.requires_grad = True
+            return rolled
+
+    # Get octave
+    def get_new_shape(base_shape, octave_level):
+        exponent = octave_level - octaves + 1
+        new_shape = np.round(np.float32(base_shape) * (octave_scale ** exponent)).astype(np.int32)
+
+        SHAPE_MARGIN = 10
+        if new_shape[0] < SHAPE_MARGIN or new_shape[1] < SHAPE_MARGIN:
+            print(
+                f'Pyramid size {octaves} with pyramid ratio {octave_scale} gives too small pyramid levels with size={new_shape}')
+            print(f'Please change parameters.')
+            exit(0)
+
+        return new_shape
+
+    # One step of deep dream
+    def deep_dream_step(img_tensor, iter, layers, learning_rate, model):
+        # 1. grab layer activations
+        layer_activations = get_layer_activation(model, img_tensor, *layers)
+
+        # 2. define loss
+        loss = 0
+        for activation in layer_activations.values():
+            loss += activation.mean()
+        loss.backward()
+
+        # 3. normalize the gradients
+        img_tensor_grad = img_tensor.grad.data
+        smooth_grads = img_tensor_grad / torch.std(img_tensor_grad)
+
+        # 4. gradient ascent
+        img_tensor.data += learning_rate * smooth_grads  # gradient ascent
+
+        # 5. clamp the range
+        img_tensor.data = torch.max(torch.min(img_tensor, UPPER_IMAGE_BOUND), LOWER_IMAGE_BOUND)
+
+        img_tensor.grad.data.zero_()  # clear the gradients otherwise they would get accumulated
+        if iter % 10 == 0:
+            print(f'Iteration {iter}, loss: {loss:.4f}')
+
+    # Going from smaller to bigger resolution
+    for octave in range(octaves):
+        new_shape = get_new_shape(base_shape, octave)
+        resize_transform = transforms.Resize(tuple(new_shape))
+        img_tensor = resize_transform(img_tensor)
+
+        for iter in range(n_iterations):
+            h_shift, w_shift = np.random.randint(-jitter, jitter + 1, 2)
+            img_tensor = random_circular_spatial_shift(img_tensor, h_shift, w_shift)
+
+            deep_dream_step(img_tensor, iter, layers, learning_rate, model)
+
+            img_tensor = random_circular_spatial_shift(img_tensor, h_shift, w_shift, should_undo=True)
+
+    write_image_tensor(dump_path, img_tensor)
+    print(f'Saved naive deep dream image to {os.path.relpath(dump_path)}')
+
+def deep_dream_jitter_octaves_deblur(img_path, dump_path, layers=None):
+    original_img_tensor = read_image_tensor(img_path, target_shape=800)
+    base_shape = original_img_tensor.shape[2:]  # save initial height and width
+    model = load_model()
+
+    # hyperparameters
+    if layers is None:
+        layers = ['features.1']
+    octaves = 4
+    octave_scale = 1.8
+    n_iterations = 5
+    learning_rate = 0.1
+    jitter = 32
+
+    # Adds stochasticity to the algorithm and makes the results more diverse
+    def random_circular_spatial_shift(tensor, h_shift, w_shift, should_undo=False):
+        if should_undo:
+            h_shift = -h_shift
+            w_shift = -w_shift
+        with torch.no_grad():
+            rolled = torch.roll(tensor, shifts=(h_shift, w_shift), dims=(2, 3))
+            rolled.requires_grad = True
+            return rolled
+
+    # Get octave
+    def get_new_shape(base_shape, octave_level):
+        exponent = octave_level - octaves + 1
+        new_shape = np.round(np.float32(base_shape) * (octave_scale ** exponent)).astype(np.int32)
+
+        SHAPE_MARGIN = 10
+        if new_shape[0] < SHAPE_MARGIN or new_shape[1] < SHAPE_MARGIN:
+            print(
+                f'Pyramid size {octaves} with pyramid ratio {octave_scale} gives too small pyramid levels with size={new_shape}')
+            print(f'Please change parameters.')
+            exit(0)
+
+        return new_shape
+
+    # One step of deep dream
+    def deep_dream_step(img_tensor, iter, layers, learning_rate, model):
+        # 1. grab layer activations
+        layer_activations = get_layer_activation(model, img_tensor, *layers)
+
+        # 2. define loss
+        loss = 0
+        for activation in layer_activations.values():
+            loss += activation.mean()
+        loss.backward()
+
+        # 3. normalize the gradients
+        img_tensor_grad = img_tensor.grad.data
+        smooth_grads = img_tensor_grad / torch.std(img_tensor_grad)
+
+        # 4. gradient ascent
+        img_tensor.data += learning_rate * smooth_grads  # gradient ascent
+
+        # 5. clamp the range
+        img_tensor.data = torch.max(torch.min(img_tensor, UPPER_IMAGE_BOUND), LOWER_IMAGE_BOUND)
+
+        img_tensor.grad.data.zero_()  # clear the gradients otherwise they would get accumulated
+        if iter % 10 == 0:
+            print(f'Iteration {iter}, loss: {loss:.4f}')
+
+    details = torch.zeros_like(original_img_tensor)
+    # Going from smaller to bigger resolution
+    for octave in range(octaves):
+        new_shape = get_new_shape(base_shape, octave)
+        resize_transform = transforms.Resize(tuple(new_shape))
+        details = resize_transform(details)
+        img_tensor = resize_transform(original_img_tensor)
+
+        deep_dream_tensor = img_tensor + details
+        for iter in range(n_iterations):
+            h_shift, w_shift = np.random.randint(-jitter, jitter + 1, 2)
+            deep_dream_tensor = random_circular_spatial_shift(deep_dream_tensor, h_shift, w_shift)
+
+            deep_dream_step(deep_dream_tensor, iter, layers, learning_rate, model)
+
+            deep_dream_tensor = random_circular_spatial_shift(deep_dream_tensor, h_shift, w_shift, should_undo=True)
+
+        details = deep_dream_tensor - img_tensor
+
+    write_image_tensor(dump_path, original_img_tensor + details)
+    print(f'Saved naive deep dream image to {os.path.relpath(dump_path)}')
+
+
+
+for i in range(0, 30):
+    # deep_dream_simple("starry_night.png", "output_simple.png")
+    # deep_dream_jitter("starry_night.png", "output_jitter.png")
+    deep_dream_jitter_octaves("starry_night.png", f"out/starry_night/blur_{i}.png", layers=[f'features.{i}'])
+    deep_dream_jitter_octaves_deblur("starry_night.png", f"out/starry_night/deblur_{i}.png", layers=[f'features.{i}'])
