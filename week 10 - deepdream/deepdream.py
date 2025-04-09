@@ -56,12 +56,22 @@ def write_image_tensor(img_path, img_tensor):
 
     cv.imwrite(img_path, img[:, :, ::-1])  # ::-1 because opencv expects BGR (and not RGB) format...
 
-def load_model():
-    model = models.vgg16(weights=models.VGG16_Weights.IMAGENET1K_V1).to(DEVICE)  # Instantiate VGG 16 and send it to GPU
+def load_model(model_name="vgg16"):
+    if model_name == "vgg16":
+        model = models.vgg16(weights=models.VGG16_Weights.IMAGENET1K_V1).to(DEVICE)
+    elif model_name == "resnet50":
+        model = models.resnet50(weights=models.ResNet50_Weights.IMAGENET1K_V2).to(DEVICE)
+    elif model_name == "resnet152":
+        model = models.resnet152(weights=models.ResNet152_Weights.IMAGENET1K_V2).to(DEVICE)
+    elif model_name == "googlenet":
+        model = models.googlenet(weights=models.GoogLeNet_Weights.IMAGENET1K_V1).to(DEVICE)
+    else:
+        raise ValueError('Invalid model.')
+
     for param in model.parameters():
         param.requires_grad = False
 
-    print(dict(model.named_modules()))
+    print([module for module in model.named_modules()])
     print()
 
     return model
@@ -81,9 +91,9 @@ def get_layer_activation(model, input, *layer_names):
 
     return activations
 
-def deep_dream_simple(img_path, dump_path):
+def deep_dream_simple(img_path, dump_path, model_name="vgg16"):
     img_tensor = read_image_tensor(img_path, target_shape=500)
-    model = load_model()
+    model = load_model(model_name)
 
     # hyperparameters
     layers = ['features.29']
@@ -114,9 +124,9 @@ def deep_dream_simple(img_path, dump_path):
     write_image_tensor(dump_path, img_tensor)
     print(f'Saved naive deep dream image to {os.path.relpath(dump_path)}')
 
-def deep_dream_jitter(img_path, dump_path):
+def deep_dream_jitter(img_path, dump_path, model_name="vgg16"):
     img_tensor = read_image_tensor(img_path, target_shape=500)
-    model = load_model()
+    model = load_model(model_name)
 
     # hyperparameters
     layers = ['features.29']
@@ -167,16 +177,16 @@ def deep_dream_jitter(img_path, dump_path):
     write_image_tensor(dump_path, img_tensor)
     print(f'Saved naive deep dream image to {os.path.relpath(dump_path)}')
 
-def deep_dream_jitter_octaves(img_path, dump_path, layers=None):
+def deep_dream_jitter_octaves(img_path, dump_path, model_name="vgg16", layers=None):
     img_tensor = read_image_tensor(img_path, target_shape=800)
     base_shape = img_tensor.shape[2:]  # save initial height and width
-    model = load_model()
+    model = load_model(model_name)
 
     # hyperparameters
     if layers is None:
         layers = ['features.29']
     octaves = 4
-    octave_scale = 1.8
+    octave_scale = 1.4
     n_iterations = 3
     learning_rate = 0.1
     jitter = 32
@@ -247,10 +257,10 @@ def deep_dream_jitter_octaves(img_path, dump_path, layers=None):
     write_image_tensor(dump_path, img_tensor)
     print(f'Saved naive deep dream image to {os.path.relpath(dump_path)}')
 
-def deep_dream_jitter_octaves_deblur(img_path, dump_path, layers=None):
+def deep_dream_jitter_octaves_deblur(img_path, dump_path, model_name="vgg16", layers=None):
     original_img_tensor = read_image_tensor(img_path, target_shape=800)
     base_shape = original_img_tensor.shape[2:]  # save initial height and width
-    model = load_model()
+    model = load_model(model_name)
 
     # hyperparameters
     if layers is None:
@@ -332,11 +342,11 @@ def deep_dream_jitter_octaves_deblur(img_path, dump_path, layers=None):
     write_image_tensor(dump_path, original_img_tensor + details)
     print(f'Saved naive deep dream image to {os.path.relpath(dump_path)}')
 
-# deep_dream_simple("in/starry_night.png", "output_simple.png")
-# deep_dream_jitter("in/starry_night.png", "output_jitter.png")
-# deep_dream_jitter_octaves("in/starry_night.png", "output_jitter_octaves.png")
-# deep_dream_jitter_octaves_deblur("in/starry_night.png", "output_jitter_octaves_deblur.png")
+# deep_dream_simple("in/starry_night.png", "output_simple.png", "vgg16")
+# deep_dream_jitter("in/starry_night.png", "output_jitter.png", "vgg16")
+deep_dream_jitter_octaves("in/starry_night.png", "output_jitter_9.png", "vgg16")
+deep_dream_jitter_octaves_deblur("in/starry_night.png", "output_jitter_9.png", "vgg16")
 
-for i in range(0, 30):
-    deep_dream_jitter_octaves("in/starry_night.png", f"out/starry_night/blur_{i}.png", layers=[f'features.{i}'])
-    # deep_dream_jitter_octaves_deblur("in/starry_night.png", f"out/starry_night/deblur_{i}.png", layers=[f'features.{i}'])
+# for i in range(0, 30):
+    # deep_dream_jitter_octaves("in/starry_night.png", f"out/starry_night_resnet/blur_{i}.png", "vgg16", layers=[f'features.{i}'])
+    # deep_dream_jitter_octaves_deblur("in/starry_night.png", f"out/starry_night/deblur_{i}.png", layers=[f'features.{i}'], "vgg16")
