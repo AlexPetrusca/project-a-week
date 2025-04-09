@@ -1,6 +1,8 @@
 import os
 
 import torch
+from torch import nn
+from torch.nn.functional import threshold
 from torchvision import transforms, models
 
 import numpy as np
@@ -86,10 +88,16 @@ def get_layer_activation(model, input, *layer_names):
         return hook
 
     layers = dict(model.named_modules())
+
+    hooks = {}
     for layer_name in layer_names:
-        layers[layer_name].register_forward_hook(get_activation(layer_name))
+        # NOTE: these hook needs to be unregistered or else they stick around and run in the background
+        hooks[layer_name] = layers[layer_name].register_forward_hook(get_activation(layer_name))
 
     model(input)
+
+    for layer_name in layer_names:
+        hooks[layer_name].remove()
 
     return activations
 
@@ -176,14 +184,13 @@ def deep_dream(img_path, dump_path, model_name="vgg16", octaves=4, octave_scale=
     print(f'Saved deep dream image to {os.path.relpath(dump_path)}')
 
 def deep_dream_guided(img_path, guide_img_path, dump_path, model_name="vgg16", octaves=4, octave_scale=1.4,
-                      n_iterations=3, learning_rate=0.1, jitter=32, layers=None):
-    img_tensor = read_image_tensor(img_path, target_shape=800)
+                      n_iterations=3, learning_rate=0.1, jitter=32, layers=None, target_shape=800):
+    img_tensor = read_image_tensor(img_path, target_shape=target_shape)
     base_shape = img_tensor.shape[2:]  # save initial height and width
     model = load_model(model_name)
 
-    # hyperparameters
-    if layers is None:
-        layers = ['features.26']
+    guide_img_tensor = read_image_tensor(guide_img_path, target_shape=target_shape // 4)
+    guide_activations = get_layer_activation(model, guide_img_tensor, *layers)
 
     # Adds stochasticity to the algorithm and makes the results more diverse
     def random_circular_spatial_shift(tensor, h_shift, w_shift, should_undo=False):
@@ -214,18 +221,70 @@ def deep_dream_guided(img_path, guide_img_path, dump_path, model_name="vgg16", o
         # 1. grab layer activations
         layer_activations = get_layer_activation(model, img_tensor, *layers)
 
-        # 2. define loss
+        # # 2. define loss
+        # def _guided_loss(features, guide_features):
+        #     """maximize top k feature maps"""
+        #     b, ch, h, w = features.shape
+        #     target_features = features.view(ch, -1) # (ch, h*w)
+        #     guide_features = guide_features.view(ch, -1) # (ch, h*w)
+        #
+        #     channel_norms = guide_features.abs().sum(dim=1)
+        #     top_k_values, top_k_indices = torch.topk(channel_norms, 10)
+        #
+        #     print(top_k_indices)
+        #     activation = target_features[top_k_indices]
+        #     # activation = target_features[top_k_indices].t() @ guide_features[top_k_indices]
+        #     return activation.mean()
+
+        # def _guided_loss(features, guide_features):
+        #     """maximize dot product of guide_features and features"""
+        #     b, ch, h, w = features.shape
+        #     target_features = features.view(ch, -1) # (ch, h*w)
+        #     guide_features = guide_features.view(ch, -1) # (ch, h*w)
+        #
+        #     affinities = torch.matmul(target_features.t(), guide_features)
+        #     return affinities.mean()
+
+        def _guided_loss(features, guide_features):
+            """maximize dot product of masked guide_features and features"""
+            b, ch, h, w = features.shape
+            target_features = features.view(ch, -1) # (ch, h*w)
+            guide_features = guide_features.view(ch, -1) # (ch, h*w)
+
+            # unrelated features have no contribution
+            mean = guide_features.mean()
+            std = guide_features.std()
+            threshold = mean + 1 * std
+            guide_features = torch.where(guide_features > threshold, guide_features, 0)
+
+            affinities = torch.matmul(target_features.t(), guide_features)
+            return affinities.mean()
+
+        def _guided_loss(features, guide_features):
+            """maximize dot product of shifted guide_features and features"""
+            b, ch, h, w = features.shape
+            target_features = features.view(ch, -1) # (ch, h*w)
+            guide_features = guide_features.view(ch, -1) # (ch, h*w)
+
+            # unrelated features are penalized
+            mean = guide_features.mean()
+            std = guide_features.std()
+            guide_features = guide_features - (mean + 1 * std)
+
+            affinities = torch.matmul(target_features.t(), guide_features)
+            return affinities.mean()
+
         loss = 0
-        for activation in layer_activations.values():
-            loss += activation.mean()
-        loss.backward()
+        for name, activation in layer_activations.items():
+            cur_loss = _guided_loss(activation, guide_activations[name].detach())
+            cur_loss.backward()
+            loss += cur_loss
 
         # 3. normalize the gradients
         img_tensor_grad = img_tensor.grad.data
-        smooth_grads = img_tensor_grad / torch.std(img_tensor_grad)
-        # smooth_grads = img_tensor_grad / img_tensor_grad.abs().mean()
+        smooth_grads = img_tensor_grad / img_tensor_grad.abs().mean()
 
-        blur_fn = transforms.GaussianBlur(61)
+        blur_fn = transforms.GaussianBlur(31)
         smooth_grads = blur_fn(smooth_grads)
 
         # 4. gradient ascent
@@ -257,10 +316,10 @@ def deep_dream_guided(img_path, guide_img_path, dump_path, model_name="vgg16", o
 
 #-----------------------------------------------------------------------------------------------------------------------
 
-deep_dream("in/starry_night.png", "out/test.png",
-           model_name="vgg16", octaves=4, octave_scale=1.8, n_iterations=15,
-           learning_rate=0.05, layers=['features.26'])
+# deep_dream("in/starry_night.png", "out/test.png",
+#            model_name="vgg16", octaves=4, octave_scale=1.8, n_iterations=15,
+#            learning_rate=0.05, layers=['features.26'])
 
-# deep_dream_guided("in/starry_night.png", "in/grass.png", "out/guided_dream.png",
-#                   model_name="vgg16", octaves=4, octave_scale=1.8, n_iterations=15,
-#                   learning_rate=0.05, layers=['features.26'])
+deep_dream_guided("in/starry_night.png", "in/grass.png", "out/test.png",
+                  model_name="vgg16", octaves=4, octave_scale=1.4, n_iterations=10,
+                  learning_rate=0.1, layers=['features.26'], target_shape=800)
