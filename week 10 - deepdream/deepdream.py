@@ -335,8 +335,8 @@ def deep_dream_jitter_octaves_deblur(img_path, dump_path, layers=None):
 # deep_dream_simple("in/starry_night.png", "output_simple.png")
 # deep_dream_jitter("in/starry_night.png", "output_jitter.png")
 # deep_dream_jitter_octaves("in/starry_night.png", "output_jitter_octaves.png")
-deep_dream_jitter_octaves_deblur("in/starry_night.png", "output_jitter_octaves_deblur.png")
+# deep_dream_jitter_octaves_deblur("in/starry_night.png", "output_jitter_octaves_deblur.png")
 
-# for i in range(0, 30):
-#     deep_dream_jitter_octaves("in/starry_night.png", f"out/starry_night/blur_{i}.png", layers=[f'features.{i}'])
-#     deep_dream_jitter_octaves_deblur("in/starry_night.png", f"out/starry_night/deblur_{i}.png", layers=[f'features.{i}'])
+for i in range(0, 30):
+    deep_dream_jitter_octaves("in/starry_night.png", f"out/starry_night/blur_{i}.png", layers=[f'features.{i}'])
+    # deep_dream_jitter_octaves_deblur("in/starry_night.png", f"out/starry_night/deblur_{i}.png", layers=[f'features.{i}'])
