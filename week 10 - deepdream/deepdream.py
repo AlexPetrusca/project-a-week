@@ -174,7 +174,7 @@ def deep_dream_jitter_octaves(img_path, dump_path, layers=None):
 
     # hyperparameters
     if layers is None:
-        layers = ['features.4']
+        layers = ['features.29']
     octaves = 4
     octave_scale = 1.8
     n_iterations = 3
@@ -254,10 +254,10 @@ def deep_dream_jitter_octaves_deblur(img_path, dump_path, layers=None):
 
     # hyperparameters
     if layers is None:
-        layers = ['features.1']
+        layers = ['features.29']
     octaves = 4
     octave_scale = 1.8
-    n_iterations = 5
+    n_iterations = 10
     learning_rate = 0.1
     jitter = 32
 
@@ -332,10 +332,11 @@ def deep_dream_jitter_octaves_deblur(img_path, dump_path, layers=None):
     write_image_tensor(dump_path, original_img_tensor + details)
     print(f'Saved naive deep dream image to {os.path.relpath(dump_path)}')
 
+# deep_dream_simple("in/starry_night.png", "output_simple.png")
+# deep_dream_jitter("in/starry_night.png", "output_jitter.png")
+# deep_dream_jitter_octaves("in/starry_night.png", "output_jitter_octaves.png")
+deep_dream_jitter_octaves_deblur("in/starry_night.png", "output_jitter_octaves_deblur.png")
 
-
-for i in range(0, 30):
-    # deep_dream_simple("starry_night.png", "output_simple.png")
-    # deep_dream_jitter("starry_night.png", "output_jitter.png")
-    deep_dream_jitter_octaves("starry_night.png", f"out/starry_night/blur_{i}.png", layers=[f'features.{i}'])
-    deep_dream_jitter_octaves_deblur("starry_night.png", f"out/starry_night/deblur_{i}.png", layers=[f'features.{i}'])
+# for i in range(0, 30):
+#     deep_dream_jitter_octaves("in/starry_night.png", f"out/starry_night/blur_{i}.png", layers=[f'features.{i}'])
+#     deep_dream_jitter_octaves_deblur("in/starry_night.png", f"out/starry_night/deblur_{i}.png", layers=[f'features.{i}'])
