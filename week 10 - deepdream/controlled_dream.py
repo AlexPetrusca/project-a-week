@@ -245,23 +245,23 @@ def deep_dream_guided(img_path, guide_img_path, dump_path, model_name="vgg16", o
         #     affinities = torch.matmul(target_features.t(), guide_features)
         #     return affinities.mean()
 
+        # def _guided_loss(features, guide_features):
+        #     """maximize dot product of masked guide_features and features"""
+        #     b, ch, h, w = features.shape
+        #     target_features = features.view(ch, -1) # (ch, h*w)
+        #     guide_features = guide_features.view(ch, -1) # (ch, h*w)
+        #
+        #     # unrelated features have no contribution
+        #     mean = guide_features.mean()
+        #     std = guide_features.std()
+        #     threshold = mean + 1 * std
+        #     guide_features = torch.where(guide_features > threshold, guide_features, 0)
+        #
+        #     affinities = torch.matmul(target_features.t(), guide_features)
+        #     return affinities.mean()
+
         def _guided_loss(features, guide_features):
-            """maximize dot product of masked guide_features and features"""
-            b, ch, h, w = features.shape
-            target_features = features.view(ch, -1) # (ch, h*w)
-            guide_features = guide_features.view(ch, -1) # (ch, h*w)
-
-            # unrelated features have no contribution
-            mean = guide_features.mean()
-            std = guide_features.std()
-            threshold = mean + 1 * std
-            guide_features = torch.where(guide_features > threshold, guide_features, 0)
-
-            affinities = torch.matmul(target_features.t(), guide_features)
-            return affinities.mean()
-
-        def _guided_loss(features, guide_features):
-            """maximize dot product of shifted guide_features and features"""
+            """maximize dot product of penalized guide_features and features"""
             b, ch, h, w = features.shape
             target_features = features.view(ch, -1) # (ch, h*w)
             guide_features = guide_features.view(ch, -1) # (ch, h*w)
