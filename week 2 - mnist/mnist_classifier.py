@@ -4,6 +4,7 @@ import gzip
 from urllib import request
 
 import numpy as np
+import pandas as pd
 from src.network import Network
 
 def mnist(
