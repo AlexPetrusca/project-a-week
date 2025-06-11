@@ -81,6 +81,10 @@ to reduce the dimensionality of 3D datapoints to 2 dimensions.
 A list of projects that aren't included in this repo, but that I spent at least a week 
 working on and that I substituted for my weekly project for that week.
 
+## QuizBot
+
+Built an Obsidian extension that generates and renders quizzes from notes using Ollama.
+
 ## Mephisto V2.0
 
 Continued my implementation of Mephisto. Added continuous analysis, multiple lines, and 
