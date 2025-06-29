@@ -34,8 +34,9 @@ new p5((p: p5) => {
     let lastPoint: p5.Vector | null = null;
     let time = 0;
 
-    let paused = true;
-    let twoSided = false;
+    let isPaused = true;
+    let isTwoSided = false;
+    let isXAxis = false;
 
     p.setup = () => {
         p.createCanvas(WIDTH, HEIGHT);
@@ -44,7 +45,8 @@ new p5((p: p5) => {
         p.noLoop();
 
         initUI();
-        initSignal();
+        updateSignal();
+        updatePhasors();
     }
 
     p.draw = () => {
@@ -110,20 +112,19 @@ new p5((p: p5) => {
     p.keyPressed = (event: KeyboardEvent) => {
         console.log("keyPressed:", event);
         if (event.code === "Space") {
-            paused = !paused;
-            if (paused) {
+            isPaused = !isPaused;
+            if (isPaused) {
                 p.noLoop();
             } else {
                 p.loop();
             }
         }
         if (event.code === "ArrowUp" || event.code === "ArrowDown") {
-            twoSided = !twoSided;
-            if (twoSided) {
-                twoSidedPhasors(freqSignal.fys, SCALE, BIN_WIDTH);
-            } else {
-                oneSidedPhasors(freqSignal.fys, SCALE, BIN_WIDTH);
-            }
+            isTwoSided = !isTwoSided;
+            updatePhasors();
+        } else if (event.code === "ArrowRight" || event.code === "ArrowLeft") {
+            isXAxis = !isXAxis;
+            updatePhasors();
         }
     }
 
@@ -138,11 +139,12 @@ new p5((p: p5) => {
 
         sel.changed(() => {
             coords = COORDS_MAP.get(sel.value())
-            initSignal();
+            updateSignal();
+            updatePhasors();
         });
     }
 
-    function initSignal() {
+    function updateSignal() {
         const aspectRatio = normalizeCoordinates(coords);
         console.log("aspectRatio:", aspectRatio);
 
@@ -153,17 +155,20 @@ new p5((p: p5) => {
 
         console.log("timeSignal:", timeSignal);
         console.log("freqSignal:", freqSignal);
+    }
 
-        if (twoSided) {
-            twoSidedPhasors(freqSignal.fys, SCALE, BIN_WIDTH);
+    function updatePhasors() {
+        phasors.length = 0; // clear phasors
+        const axisSignal = (isXAxis) ? freqSignal.fxs : freqSignal.fys;
+        if (isTwoSided) {
+            twoSidedPhasors(axisSignal, SCALE, BIN_WIDTH);
         } else {
-            oneSidedPhasors(freqSignal.fys, SCALE, BIN_WIDTH);
+            oneSidedPhasors(axisSignal, SCALE, BIN_WIDTH);
         }
         console.log("phasors:", phasors);
     }
 
     function twoSidedPhasors(freqSignal1D: Complex[], scale: number, binWidth: number) {
-        phasors.length = 0; // clear phasors
         const N = freqSignal1D.length;
         for (let i = 0; i < N; i++) {
             if (i === 0 || i === N / 2) { // DC and Nyquist component
@@ -190,7 +195,6 @@ new p5((p: p5) => {
     }
 
     function oneSidedPhasors(freqSignal1D: Complex[], scale: number, binWidth: number) {
-        phasors.length = 0; // clear phasors
         const N = freqSignal1D.length;
         for (let i = 0; i < N; i++) {
             if (i === 0 || i === N / 2) { // DC and Nyquist component
