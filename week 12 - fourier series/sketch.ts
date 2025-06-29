@@ -76,8 +76,13 @@ new p5((p: p5) => {
         time += SPEED;
     }
 
-    // @ts-ignore
     p.mousePressed = (event: MouseEvent) => {
+        console.log("mouseClicked:", event);
+        if (event.button === 0) { // left click
+            if (event.target.tagName === "CANVAS") {
+                shuffle(phasors);
+            }
+        }
     }
 
     p.keyPressed = (event: KeyboardEvent) => {
@@ -90,11 +95,40 @@ new p5((p: p5) => {
                 p.loop();
             }
         }
+
         if (event.code === "ArrowUp") {
             let omega = HARMONIC_START + HARMONIC_SCALE * phasors.length;
             phasors.push({radius: 300 / (omega * Math.PI), phase: 0, omega: omega});
         } else if (event.code === "ArrowDown") {
             phasors.pop();
+        }
+
+        if (phasors.length > 0) {
+            if (event.code === "ArrowRight") {
+                // shift the phasor list right
+                let lastPhasor = phasors.pop();
+                phasors.unshift(lastPhasor);
+            } else if (event.code === "ArrowLeft") {
+                // shift the phasor list left
+                let firstPhasor = phasors.shift()
+                phasors.push(firstPhasor);
+            }
+        }
+    }
+
+    function shuffle(array) {
+        let currentIndex = array.length;
+
+        // While there remain elements to shuffle...
+        while (currentIndex != 0) {
+
+            // Pick a remaining element...
+            let randomIndex = Math.floor(Math.random() * currentIndex);
+            currentIndex--;
+
+            // And swap it with the current element.
+            [array[currentIndex], array[randomIndex]] = [
+                array[randomIndex], array[currentIndex]];
         }
     }
 

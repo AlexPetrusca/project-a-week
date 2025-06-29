@@ -19,4 +19,8 @@ approximations of the original function.
 
 `Space`: Toggle the animation on and off.
 
-`ArrowUp` or `ArrowDown`: Increase or decrease the number of terms in the Fourier series approximation.
+`ArrowUp` or `ArrowDown`: Increase or decrease the number of phasors.
+
+`ArrowRight` or `ArrowLeft`: Shift the order of the phasors left or right.
+
+`MouseClick`: Randomize the order of the phasors.
