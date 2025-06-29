@@ -1,5 +1,12 @@
 import p5 from 'p5';
-import coords from './assets/square-wave.json';
+import dogCoords from './assets/dog.json';
+import ellipseCoords from './assets/ellipse.json';
+import flagCoords from './assets/flag.json';
+import justiceCoords from './assets/justice.json';
+import lizardCoords from './assets/lizard.json';
+import roulette1Coords from './assets/roulette1.json';
+import roulette2Coords from './assets/roulette2.json';
+import squareWaveCoords from './assets/square-wave.json';
 
 new p5((p: p5) => {
     const WIDTH = 800;
@@ -8,7 +15,18 @@ new p5((p: p5) => {
     const SCALE = 150;
     const BIN_WIDTH = 1;
     const SPEED = 0.02;
+    const COORDS_MAP = new Map([
+        ['Square Wave', squareWaveCoords],
+        ['Ellipse', ellipseCoords],
+        ['Roulette 1', roulette1Coords],
+        ['Roulette 2', roulette2Coords],
+        ['Flag', flagCoords],
+        ['Lizard', lizardCoords],
+        ['Dog', dogCoords],
+        ['Justice', justiceCoords],
+    ]);
 
+    let coords: number[] = squareWaveCoords;
     let timeSignal: Signal2D;
     let freqSignal: FreqSignal2D;
     const phasors: Phasor[] = [];
@@ -17,7 +35,7 @@ new p5((p: p5) => {
     let time = 0;
 
     let paused = true;
-    let twoSided = true;
+    let twoSided = false;
 
     p.setup = () => {
         p.createCanvas(WIDTH, HEIGHT);
@@ -25,23 +43,8 @@ new p5((p: p5) => {
         p.background(0);
         p.noLoop();
 
-        const aspectRatio = normalizeCoordinates(coords);
-        console.log("aspectRatio:", aspectRatio);
-
-        timeSignal = createSignal2D(coords);
-        const fxs = dft(timeSignal.xs);
-        const fys = dft(timeSignal.ys);
-        freqSignal = createFreqSignal2D(fxs, fys);
-
-        console.log("timeSignal:", timeSignal);
-        console.log("freqSignal:", freqSignal);
-
-        if (twoSided) {
-            twoSidedPhasors(freqSignal.fys, SCALE, BIN_WIDTH);
-        } else {
-            oneSidedPhasors(freqSignal.fys, SCALE, BIN_WIDTH);
-        }
-        console.log("phasors:", phasors);
+        initUI();
+        initSignal();
     }
 
     p.draw = () => {
@@ -122,6 +125,41 @@ new p5((p: p5) => {
                 oneSidedPhasors(freqSignal.fys, SCALE, BIN_WIDTH);
             }
         }
+    }
+
+    function initUI() {
+        const sel: Element = p.createSelect();
+        sel.position(10, 10);
+
+        for (const key of COORDS_MAP.keys()) {
+            sel.option(key);
+        }
+        sel.selected('Square Wave');
+
+        sel.changed(() => {
+            coords = COORDS_MAP.get(sel.value())
+            initSignal();
+        });
+    }
+
+    function initSignal() {
+        const aspectRatio = normalizeCoordinates(coords);
+        console.log("aspectRatio:", aspectRatio);
+
+        timeSignal = createSignal2D(coords);
+        const fxs = dft(timeSignal.xs);
+        const fys = dft(timeSignal.ys);
+        freqSignal = createFreqSignal2D(fxs, fys);
+
+        console.log("timeSignal:", timeSignal);
+        console.log("freqSignal:", freqSignal);
+
+        if (twoSided) {
+            twoSidedPhasors(freqSignal.fys, SCALE, BIN_WIDTH);
+        } else {
+            oneSidedPhasors(freqSignal.fys, SCALE, BIN_WIDTH);
+        }
+        console.log("phasors:", phasors);
     }
 
     function twoSidedPhasors(freqSignal1D: Complex[], scale: number, binWidth: number) {
