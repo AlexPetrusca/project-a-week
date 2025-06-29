@@ -1,9 +1,12 @@
 import p5 from 'p5';
-import coords from './assets/ellipse.json';
+import coords from './assets/square-wave.json';
 
 new p5((p: p5) => {
     const WIDTH = 800;
     const HEIGHT = 800;
+
+    const SCALE = 150;
+    const BIN_WIDTH = 1;
     const SPEED = 0.02;
 
     let timeSignal: Signal2D;
@@ -12,7 +15,9 @@ new p5((p: p5) => {
 
     let lastPoint: p5.Vector | null = null;
     let time = 0;
+
     let paused = true;
+    let twoSided = true;
 
     p.setup = () => {
         p.createCanvas(WIDTH, HEIGHT);
@@ -23,21 +28,7 @@ new p5((p: p5) => {
         const aspectRatio = normalizeCoordinates(coords);
         console.log("aspectRatio:", aspectRatio);
 
-        const coords2 = [];
-        let idx = 0;
-        for (let i = 0; i < 2; i++) {
-            for (let j = 0; j < 10; j++) {
-                coords2.push(idx, 100);
-                idx++;
-            }
-            for (let j = 0; j < 10; j++) {
-                coords2.push(idx, -100);
-                idx++;
-            }
-        }
-        console.log(coords2);
-
-        timeSignal = createSignal2D(coords2);
+        timeSignal = createSignal2D(coords);
         const fxs = dft(timeSignal.xs);
         const fys = dft(timeSignal.ys);
         freqSignal = createFreqSignal2D(fxs, fys);
@@ -45,27 +36,10 @@ new p5((p: p5) => {
         console.log("timeSignal:", timeSignal);
         console.log("freqSignal:", freqSignal);
 
-        const N = freqSignal.length;
-        const BIN_WIDTH = N;
-        for (let i = 0; i < N; i++) {
-            if (i === 0 || i === N / 2) {
-                phasors.push({
-                    radius: freqSignal.fxs[i].magnitude(),
-                    phase: freqSignal.fxs[i].iangle(),
-                    omega: BIN_WIDTH * i / N,
-                })
-            } else if (i < N / 2) {
-                phasors.push({
-                    radius: freqSignal.fxs[i].magnitude(),
-                    phase: freqSignal.fxs[i].iangle(),
-                    omega: BIN_WIDTH * i / N,
-                })
-                phasors.push({
-                    radius: freqSignal.fxs[N - i].magnitude(),
-                    phase: freqSignal.fxs[N - i].iangle(),
-                    omega: -BIN_WIDTH * (i) / N,
-                })
-            }
+        if (twoSided) {
+            twoSidedPhasors(freqSignal.fys, SCALE, BIN_WIDTH);
+        } else {
+            oneSidedPhasors(freqSignal.fys, SCALE, BIN_WIDTH);
         }
         console.log("phasors:", phasors);
     }
@@ -140,6 +114,62 @@ new p5((p: p5) => {
                 p.loop();
             }
         }
+        if (event.code === "ArrowUp" || event.code === "ArrowDown") {
+            twoSided = !twoSided;
+            if (twoSided) {
+                twoSidedPhasors(freqSignal.fys, SCALE, BIN_WIDTH);
+            } else {
+                oneSidedPhasors(freqSignal.fys, SCALE, BIN_WIDTH);
+            }
+        }
+    }
+
+    function twoSidedPhasors(freqSignal1D: Complex[], scale: number, binWidth: number) {
+        phasors.length = 0; // clear phasors
+        const N = freqSignal1D.length;
+        for (let i = 0; i < N; i++) {
+            if (i === 0 || i === N / 2) { // DC and Nyquist component
+                phasors.push({
+                    radius: scale * freqSignal1D[i].magnitude(),
+                    phase: freqSignal1D[i].iangle(),
+                    omega: binWidth * i,
+                });
+            } else if (i < N / 2) {
+                // positive frequency component
+                phasors.push({
+                    radius: scale * freqSignal1D[i].magnitude(),
+                    phase: freqSignal1D[i].iangle(),
+                    omega: binWidth * i,
+                });
+                // negative frequency component
+                phasors.push({
+                    radius: scale * freqSignal1D[N - i].magnitude(),
+                    phase: freqSignal1D[N - i].iangle(),
+                    omega: -binWidth * i,
+                });
+            }
+        }
+    }
+
+    function oneSidedPhasors(freqSignal1D: Complex[], scale: number, binWidth: number) {
+        phasors.length = 0; // clear phasors
+        const N = freqSignal1D.length;
+        for (let i = 0; i < N; i++) {
+            if (i === 0 || i === N / 2) { // DC and Nyquist component
+                phasors.push({
+                    radius: scale * freqSignal1D[i].magnitude(),
+                    phase: freqSignal1D[i].iangle(),
+                    omega: binWidth * i,
+                });
+            } else if (i < N / 2) {
+                // sum of positive and negative components (mirrored)
+                phasors.push({
+                    radius: 2 * scale * freqSignal1D[i].magnitude(),
+                    phase: freqSignal1D[i].iangle(),
+                    omega: binWidth * i,
+                });
+            }
+        }
     }
 
     function dft(timeSignal: number[]) {
@@ -192,13 +222,15 @@ new p5((p: p5) => {
         const aspectRatio = width / height;
         if (aspectRatio > 1) {
             for (let i = 0; i < coords.length; i += 2) {
-                coords[i] = p.map(coords[i], minX, maxX, 0, 1);
-                coords[i + 1] = p.map(coords[i + 1], minY, maxY, 0, 1 / aspectRatio);
+                const yLimit = 1 / aspectRatio;
+                coords[i] = p.map(coords[i], minX, maxX, -0.5, 0.5);
+                coords[i + 1] = p.map(coords[i + 1], minY, maxY, -yLimit / 2, yLimit / 2);
             }
         } else {
             for (let i = 0; i < coords.length; i += 2) {
-                coords[i] = p.map(coords[i], minX, maxX, 0, aspectRatio);
-                coords[i + 1] = p.map(coords[i + 1], minY, maxY, 0, 1);
+                const xLimit = aspectRatio;
+                coords[i] = p.map(coords[i], minX, maxX, -xLimit / 2, xLimit / 2);
+                coords[i + 1] = p.map(coords[i + 1], minY, maxY, -0.5, 0.5);
             }
         }
         return aspectRatio;
