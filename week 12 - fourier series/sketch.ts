@@ -106,12 +106,12 @@ new p5((p: p5) => {
         if (phasors.length > 0) {
             if (event.code === "ArrowRight") {
                 // shift the phasor list right
-                let lastPhasor = phasors.pop();
-                phasors.unshift(lastPhasor);
+                const lastPhasor = phasors.pop();
+                if (lastPhasor) phasors.unshift(lastPhasor);
             } else if (event.code === "ArrowLeft") {
                 // shift the phasor list left
-                let firstPhasor = phasors.shift()
-                phasors.push(firstPhasor);
+                const firstPhasor = phasors.shift()
+                if (firstPhasor) phasors.push(firstPhasor);
             }
         }
     }
@@ -132,7 +132,7 @@ new p5((p: p5) => {
         }
     }
 
-    // definitions & exports
+    // definitions
     type Phasor = {
         radius: number;
         phase: number;
