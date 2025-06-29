@@ -9,10 +9,10 @@ import roulette2Coords from './assets/roulette2.json';
 import squareWaveCoords from './assets/square-wave.json';
 
 new p5((p: p5) => {
-    const WIDTH = 800;
-    const HEIGHT = 800;
+    const WIDTH = 1080;
+    const HEIGHT = 720;
 
-    const SCALE = 150;
+    const SCALE = 175;
     const BIN_WIDTH = 1;
     const SPEED = 0.02;
     const COORDS_MAP = new Map([
