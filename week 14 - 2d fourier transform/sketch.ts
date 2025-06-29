@@ -4,13 +4,13 @@ import coords from './assets/ellipse.json';
 new p5((p: p5) => {
     const WIDTH = 800;
     const HEIGHT = 800;
+
     const SPEED = 0.02;
 
     let timeSignal: Signal2D;
     let freqSignal: FreqSignal2D;
     const phasors: Phasor[] = [];
 
-    let lastPoint: p5.Vector | null = null;
     let time = 0;
     let paused = true;
 
@@ -24,18 +24,14 @@ new p5((p: p5) => {
         console.log("aspectRatio:", aspectRatio);
 
         const coords2 = [];
-        let idx = 0;
         for (let i = 0; i < 2; i++) {
             for (let j = 0; j < 10; j++) {
-                coords2.push(idx, 100);
-                idx++;
+                coords2.push(100, 0);
             }
             for (let j = 0; j < 10; j++) {
-                coords2.push(idx, -100);
-                idx++;
+                coords2.push(-100, 0);
             }
         }
-        console.log(coords2);
 
         timeSignal = createSignal2D(coords2);
         const fxs = dft(timeSignal.xs);
@@ -70,7 +66,32 @@ new p5((p: p5) => {
         console.log("phasors:", phasors);
     }
 
+    let lastPoint: p5.Vector | null = null; // todo: DELETE ME
     p.draw = () => {
+        // let scale = WIDTH / 2 - 10;
+        // let xOffset = WIDTH / 2;
+        // let yOffset = HEIGHT / 2;
+        //
+        // // Plot coordinates
+        // p.strokeWeight(2);
+        // for (let i = 0; i < timeSignal.length; i++) {
+        //     const x = scale * timeSignal.xs[i] + xOffset;
+        //     const y = scale * timeSignal.ys[i]  + yOffset;
+        //     p.point(x, y);
+        // }
+        //
+        // // Bounding box
+        // p.stroke(255, 255, 255, 100);
+        // p.noFill();
+        // p.strokeWeight(1);
+        // p.rect(xOffset, yOffset, scale, scale);
+        //
+        // // Increment time
+        // time += SPEED;
+
+
+
+
         // capture right side
         let rightSide = p.get(WIDTH / 2, 0, WIDTH, HEIGHT);
         p.background(0)
