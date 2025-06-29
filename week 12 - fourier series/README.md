@@ -1,6 +1,9 @@
 # Fourier Series Sketch
 
-This p5.js sketch demonstrates how to use the Fourier series and phasors to approximate a square wave.
+This p5.js sketch demonstrates how to use the Fourier series and phasors to approximate a square wave. It can be easily
+adapted to visualize other periodic functions as well.
+
+### Overview
 
 The **Fourier series** is a mathematical tool used to represent *periodic functions* as an *infinite sum of 
 trigonometric functions* (i.e. sine and cosine functions). By taking more and more terms, we get increasingly accurate
