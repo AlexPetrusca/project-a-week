@@ -1,12 +1,17 @@
 import p5 from 'p5';
-import dogCoords from './assets/dog.json';
 import ellipseCoords from './assets/ellipse.json';
+import spiralCoords from './assets/spiral.json';
 import flagCoords from './assets/flag.json';
-import justiceCoords from './assets/justice.json';
-import lizardCoords from './assets/lizard.json';
-import roulette1Coords from './assets/roulette1.json';
-import roulette2Coords from './assets/roulette2.json';
 import squareWaveCoords from './assets/square-wave.json';
+import trainCoords from './assets/train.json';
+import leafCoords from './assets/leaf.json';
+import handCoords from './assets/hand.json';
+import womanCoords from './assets/woman.json';
+import dogCoords from './assets/dog.json';
+import dinosaurCoords from './assets/dinosaur.json';
+import birdCoords from './assets/bird.json';
+import sexyCoords from './assets/sexy.json';
+import catCoords from './assets/cat.json';
 
 new p5((p: p5) => {
     const WIDTH = 1080;
@@ -17,13 +22,18 @@ new p5((p: p5) => {
     const SPEED = 0.02;
     const COORDS_MAP = new Map([
         ['Ellipse', ellipseCoords],
-        ['Square Wave', squareWaveCoords],
-        ['Roulette 1', roulette1Coords],
-        ['Roulette 2', roulette2Coords],
+        ['Spiral', spiralCoords],
         ['Flag', flagCoords],
-        ['Lizard', lizardCoords],
+        ['Train', trainCoords],
+        ['Leaf', leafCoords],
+        ['Hand', handCoords],
+        ['Cat', catCoords],
         ['Dog', dogCoords],
-        ['Justice', justiceCoords],
+        ['Bird', birdCoords],
+        ['Dinosaur', dinosaurCoords],
+        ['Woman', womanCoords],
+        ['Sexy', sexyCoords],
+        ['Square Wave', squareWaveCoords],
     ]);
 
     let coords: number[] = ellipseCoords;
@@ -37,7 +47,7 @@ new p5((p: p5) => {
 
     let quality = 1;
     let isPaused = true;
-    let isTwoSided = false;
+    let isTwoSided = true;
 
     p.setup = () => {
         p.createCanvas(WIDTH, HEIGHT);
@@ -107,7 +117,7 @@ new p5((p: p5) => {
 
         // Calculate the position of the phasor sum
         let startVectorX = p.createVector(0.5 * WIDTH, 0.25 * HEIGHT);
-        let startVectorY = p.createVector(0.25 * HEIGHT, 0.75 * HEIGHT - 20);
+        let startVectorY = p.createVector(0.25 * HEIGHT, 0.75 * HEIGHT - margin);
         const numPhasors = Math.floor(quality * phasorsX.length);
         const posX = calculatePhasorPosition(phasorsX, numPhasors, startVectorX.copy());
         const posY = calculatePhasorPosition(phasorsY, numPhasors, startVectorY.copy());
