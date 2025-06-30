@@ -34,6 +34,7 @@ new p5((p: p5) => {
     let lastPoint: p5.Vector | null = null;
     let time = 0;
 
+    let quality = 1;
     let isPaused = true;
     let isTwoSided = false;
     let isXAxis = false;
@@ -44,9 +45,9 @@ new p5((p: p5) => {
         p.background(0);
         p.noLoop();
 
-        initUI();
         updateSignal();
         updatePhasors();
+        initUI();
     }
 
     p.draw = () => {
@@ -59,7 +60,9 @@ new p5((p: p5) => {
         p.push()
         p.translate(WIDTH / 4, HEIGHT / 2);
         p.strokeWeight(1);
-        for (const phasor of phasors) {
+        const numPhasors = Math.floor(quality * phasors.length);
+        for (let i = 0; i < numPhasors; i++) {
+            const phasor = phasors[i];
             const phi = phasor.omega * time - phasor.phase;
 
             p.noFill();
@@ -78,7 +81,8 @@ new p5((p: p5) => {
 
         // Calculate the position of the phasor sum
         const xy = p.createVector(WIDTH / 4, HEIGHT / 2)
-        for (const phasor of phasors) {
+        for (let i = 0; i < numPhasors; i++) {
+            const phasor = phasors[i];
             const phi = phasor.omega * time - phasor.phase;
             xy.add(p5.Vector.fromAngle(phi, phasor.radius));
         }
@@ -131,16 +135,20 @@ new p5((p: p5) => {
     function initUI() {
         const sel: Element = p.createSelect();
         sel.position(10, 10);
-
         for (const key of COORDS_MAP.keys()) {
             sel.option(key);
         }
         sel.selected('Square Wave');
-
         sel.changed(() => {
             coords = COORDS_MAP.get(sel.value())
             updateSignal();
             updatePhasors();
+        });
+
+        const sli: Element = p.createSlider(0, 1, 1, 0.001);
+        sli.position(10, 35);
+        sli.input(() => {
+            quality = sli.value();
         });
     }
 
