@@ -55,17 +55,6 @@ new p5((p: p5) => {
         drawPhasors();
     }
 
-    function calculatePhasorSum() {
-        const xy = p.createVector(WIDTH / 4, HEIGHT / 2);
-        const numPhasors = Math.floor(quality * phasors.length);
-        for (let i = 0; i < numPhasors; i++) {
-            const phasor = phasors[i];
-            const phi = phasor.omega * time - phasor.phase;
-            xy.add(p5.Vector.fromAngle(phi, phasor.radius));
-        }
-        return xy;
-    }
-
     function drawTrace() {
         // Capture and translate right side
         let rightSide = p.get(WIDTH / 2, 0, WIDTH, HEIGHT);
@@ -116,6 +105,17 @@ new p5((p: p5) => {
         p.strokeWeight(0.5);
         p.line(xy.x, xy.y, WIDTH / 2 - 1, xy.y);
         console.log(xy);
+    }
+
+    function calculatePhasorSum() {
+        const xy = p.createVector(WIDTH / 4, HEIGHT / 2);
+        const numPhasors = Math.floor(quality * phasors.length);
+        for (let i = 0; i < numPhasors; i++) {
+            const phasor = phasors[i];
+            const phi = phasor.omega * time - phasor.phase;
+            xy.add(p5.Vector.fromAngle(phi, phasor.radius));
+        }
+        return xy;
     }
 
     p.mousePressed = (event: MouseEvent) => {
