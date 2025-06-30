@@ -79,7 +79,8 @@ new p5((p: p5) => {
     p.mousePressed = (event: MouseEvent) => {
         console.log("mouseClicked:", event);
         if (event.button === 0) { // left click
-            if (event.target.tagName === "CANVAS") {
+            const target = event.target as HTMLElement;
+            if (target.tagName === "CANVAS") {
                 shuffle(phasors);
             }
         }
@@ -116,7 +117,7 @@ new p5((p: p5) => {
         }
     }
 
-    function shuffle(array) {
+    function shuffle(array: any[]) {
         let currentIndex = array.length;
 
         // While there remain elements to shuffle...

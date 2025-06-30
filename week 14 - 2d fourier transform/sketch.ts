@@ -1,73 +1,57 @@
 import p5 from 'p5';
-import coords from './assets/ellipse.json';
+import dogCoords from './assets/dog.json';
+import ellipseCoords from './assets/ellipse.json';
+import flagCoords from './assets/flag.json';
+import justiceCoords from './assets/justice.json';
+import lizardCoords from './assets/lizard.json';
+import roulette1Coords from './assets/roulette1.json';
+import roulette2Coords from './assets/roulette2.json';
+import squareWaveCoords from './assets/square-wave.json';
 
 new p5((p: p5) => {
-    const WIDTH = 800;
-    const HEIGHT = 800;
+    const WIDTH = 1080;
+    const HEIGHT = 720;
 
+    const SCALE = 175;
+    const BIN_WIDTH = 1;
     const SPEED = 0.02;
+    const COORDS_MAP = new Map([
+        ['Square Wave', squareWaveCoords],
+        ['Ellipse', ellipseCoords],
+        ['Roulette 1', roulette1Coords],
+        ['Roulette 2', roulette2Coords],
+        ['Flag', flagCoords],
+        ['Lizard', lizardCoords],
+        ['Dog', dogCoords],
+        ['Justice', justiceCoords],
+    ]);
 
+    let coords: number[] = squareWaveCoords;
     let timeSignal: Signal2D;
     let freqSignal: FreqSignal2D;
     const phasors: Phasor[] = [];
 
-    let time = 0;
-    let paused = true;
+    let lastPoint: p5.Vector | null = null;
+    let time = -SPEED;
+
+    let quality = 1;
+    let isPaused = true;
+    let isTwoSided = false;
+    let isXAxis = false;
 
     p.setup = () => {
         p.createCanvas(WIDTH, HEIGHT);
-        p.stroke(255);
         p.background(0);
         p.noLoop();
 
-        const aspectRatio = normalizeCoordinates(coords);
-        console.log("aspectRatio:", aspectRatio);
-
-        const coords2 = [];
-        for (let i = 0; i < 2; i++) {
-            for (let j = 0; j < 10; j++) {
-                coords2.push(100, 0);
-            }
-            for (let j = 0; j < 10; j++) {
-                coords2.push(-100, 0);
-            }
-        }
-
-        timeSignal = createSignal2D(coords2);
-        const fxs = dft(timeSignal.xs);
-        const fys = dft(timeSignal.ys);
-        freqSignal = createFreqSignal2D(fxs, fys);
-
-        console.log("timeSignal:", timeSignal);
-        console.log("freqSignal:", freqSignal);
-
-        const N = freqSignal.length;
-        const BIN_WIDTH = N;
-        for (let i = 0; i < N; i++) {
-            if (i === 0 || i === N / 2) {
-                phasors.push({
-                    radius: freqSignal.fxs[i].magnitude(),
-                    phase: freqSignal.fxs[i].iangle(),
-                    omega: BIN_WIDTH * i / N,
-                })
-            } else if (i < N / 2) {
-                phasors.push({
-                    radius: freqSignal.fxs[i].magnitude(),
-                    phase: freqSignal.fxs[i].iangle(),
-                    omega: BIN_WIDTH * i / N,
-                })
-                phasors.push({
-                    radius: freqSignal.fxs[N - i].magnitude(),
-                    phase: freqSignal.fxs[N - i].iangle(),
-                    omega: -BIN_WIDTH * (i) / N,
-                })
-            }
-        }
-        console.log("phasors:", phasors);
+        updateSignal();
+        updatePhasors();
+        initUI();
     }
 
-    let lastPoint: p5.Vector | null = null; // todo: DELETE ME
     p.draw = () => {
+        time += SPEED;
+
         // let scale = WIDTH / 2 - 10;
         // let xOffset = WIDTH / 2;
         // let yOffset = HEIGHT / 2;
@@ -85,23 +69,40 @@ new p5((p: p5) => {
         // p.noFill();
         // p.strokeWeight(1);
         // p.rect(xOffset, yOffset, scale, scale);
-        //
-        // // Increment time
-        // time += SPEED;
 
+        drawTrace();
+        drawPhasors();
+    }
 
-
-
-        // capture right side
+    function drawTrace() {
+        // Capture and translate right side
         let rightSide = p.get(WIDTH / 2, 0, WIDTH, HEIGHT);
-        p.background(0)
-        p.image(rightSide, WIDTH / 2 + 1, 0)
+        p.background(0);
+        p.image(rightSide, WIDTH / 2 + 1, 0);
 
-        // Draw phasors
+        // Draw the traced function
+        const xy = calculatePhasorSum();
+        p.strokeWeight(2);
+        if (lastPoint) {
+            p.line(lastPoint.x + 1, lastPoint.y, WIDTH / 2 + 1, xy.y);
+        } else {
+            p.point(WIDTH / 2 + 1, xy.y);
+        }
+        lastPoint = p.createVector(WIDTH / 2 + 1, xy.y);
+    }
+
+    function drawPhasors() {
+        p.stroke(0);
+        p.fill(0);
+        p.rect(0, 0, WIDTH / 2 - 1, HEIGHT);
+
+        p.stroke(255);
         p.push()
         p.translate(WIDTH / 4, HEIGHT / 2);
         p.strokeWeight(1);
-        for (const phasor of phasors) {
+        const numPhasors = Math.floor(quality * phasors.length);
+        for (let i = 0; i < numPhasors; i++) {
+            const phasor = phasors[i];
             const phi = phasor.omega * time - phasor.phase;
 
             p.noFill();
@@ -112,34 +113,28 @@ new p5((p: p5) => {
 
             p.translate(phasor.radius, 0);
             p.fill(255);
-            p.circle(0, 0, 6);
+            p.circle(0, 0, 5);
 
             p.rotate(-phi);
         }
         p.pop()
 
-        // Calculate the position of the phasor sum
-        const xy = p.createVector(WIDTH / 4, HEIGHT / 2)
-        for (const phasor of phasors) {
+        // Draw horizontal line representing the projection of the phasor sum
+        const xy = calculatePhasorSum();
+        p.strokeWeight(0.5);
+        p.line(xy.x, xy.y, WIDTH / 2 - 1, xy.y);
+        console.log(xy);
+    }
+
+    function calculatePhasorSum() {
+        const xy = p.createVector(WIDTH / 4, HEIGHT / 2);
+        const numPhasors = Math.floor(quality * phasors.length);
+        for (let i = 0; i < numPhasors; i++) {
+            const phasor = phasors[i];
             const phi = phasor.omega * time - phasor.phase;
             xy.add(p5.Vector.fromAngle(phi, phasor.radius));
         }
-
-        // Draw horizontal line representing the projection of the phasor sum
-        p.strokeWeight(0.5);
-        p.line(xy.x, xy.y, WIDTH / 2 + 1, xy.y);
-
-        // Draw the traced function
-        p.strokeWeight(2);
-        if (lastPoint) {
-            p.line(lastPoint.x + 1, lastPoint.y, WIDTH / 2 + 1, xy.y);
-        } else {
-            p.point(WIDTH / 2 + 1, xy.y);
-        }
-        lastPoint = p.createVector(WIDTH / 2 + 1, xy.y);
-
-        // increment time
-        time += SPEED;
+        return xy;
     }
 
     p.mousePressed = (event: MouseEvent) => {
@@ -149,16 +144,118 @@ new p5((p: p5) => {
                 shuffle(phasors);
             }
         }
+        drawPhasors();
     }
 
     p.keyPressed = (event: KeyboardEvent) => {
         console.log("keyPressed:", event);
         if (event.code === "Space") {
-            paused = !paused;
-            if (paused) {
+            isPaused = !isPaused;
+            if (isPaused) {
                 p.noLoop();
             } else {
                 p.loop();
+            }
+        }
+        if (event.code === "ArrowUp") {
+            isXAxis = !isXAxis;
+            updatePhasors();
+        } else if (event.code === "ArrowDown") {
+            isTwoSided = !isTwoSided;
+            updatePhasors();
+        }
+        console.log("called");
+        drawPhasors();
+    }
+
+    function initUI() {
+        const sel = p.createSelect();
+        sel.position(10, 10);
+        for (const key of COORDS_MAP.keys()) {
+            sel.option(key);
+        }
+        sel.selected('Square Wave');
+        sel.changed(() => {
+            coords = COORDS_MAP.get(sel.value())
+            updateSignal();
+            updatePhasors();
+            drawPhasors();
+        });
+
+        const sli = p.createSlider(0, 1, 1, 0.001);
+        sli.position(10, 35);
+        sli.input(() => {
+            quality = sli.value();
+            drawPhasors();
+        });
+    }
+
+    function updateSignal() {
+        const aspectRatio = normalizeCoordinates(coords);
+        console.log("aspectRatio:", aspectRatio);
+
+        timeSignal = createSignal2D(coords);
+        const fxs = dft(timeSignal.xs);
+        const fys = dft(timeSignal.ys);
+        freqSignal = createFreqSignal2D(fxs, fys);
+
+        console.log("timeSignal:", timeSignal);
+        console.log("freqSignal:", freqSignal);
+    }
+
+    function updatePhasors() {
+        phasors.length = 0; // clear phasors
+        const axisSignal = (isXAxis) ? freqSignal.fxs : freqSignal.fys;
+        if (isTwoSided) {
+            twoSidedPhasors(axisSignal, SCALE, BIN_WIDTH);
+        } else {
+            oneSidedPhasors(axisSignal, SCALE, BIN_WIDTH);
+        }
+        console.log("phasors:", phasors);
+    }
+
+    function twoSidedPhasors(freqSignal1D: Complex[], scale: number, binWidth: number) {
+        const N = freqSignal1D.length;
+        for (let i = 0; i < N; i++) {
+            if (i === 0 || i === N / 2) { // DC and Nyquist component
+                phasors.push({
+                    radius: scale * freqSignal1D[i].magnitude(),
+                    phase: freqSignal1D[i].iangle(),
+                    omega: binWidth * i,
+                });
+            } else if (i < N / 2) {
+                // positive frequency component
+                phasors.push({
+                    radius: scale * freqSignal1D[i].magnitude(),
+                    phase: freqSignal1D[i].iangle(),
+                    omega: binWidth * i,
+                });
+                // negative frequency component
+                phasors.push({
+                    radius: scale * freqSignal1D[N - i].magnitude(),
+                    phase: freqSignal1D[N - i].iangle(),
+                    omega: -binWidth * i,
+                });
+            }
+        }
+    }
+
+    function oneSidedPhasors(freqSignal1D: Complex[], scale: number, binWidth: number) {
+        const N = freqSignal1D.length;
+        for (let i = 0; i < N; i++) {
+            if (i === 0 || i === N / 2) { // DC and Nyquist component
+                phasors.push({
+                    radius: scale * freqSignal1D[i].magnitude(),
+                    phase: freqSignal1D[i].iangle(),
+                    omega: binWidth * i,
+                });
+            } else if (i < N / 2) {
+                // sum of positive and negative components (mirrored)
+                phasors.push({
+                    radius: 2 * scale * freqSignal1D[i].magnitude(),
+                    phase: freqSignal1D[i].iangle(),
+                    omega: binWidth * i,
+                });
             }
         }
     }
@@ -213,13 +310,15 @@ new p5((p: p5) => {
         const aspectRatio = width / height;
         if (aspectRatio > 1) {
             for (let i = 0; i < coords.length; i += 2) {
-                coords[i] = p.map(coords[i], minX, maxX, 0, 1);
-                coords[i + 1] = p.map(coords[i + 1], minY, maxY, 0, 1 / aspectRatio);
+                const yLimit = 1 / aspectRatio;
+                coords[i] = p.map(coords[i], minX, maxX, -0.5, 0.5);
+                coords[i + 1] = p.map(coords[i + 1], minY, maxY, -yLimit / 2, yLimit / 2);
             }
         } else {
             for (let i = 0; i < coords.length; i += 2) {
-                coords[i] = p.map(coords[i], minX, maxX, 0, aspectRatio);
-                coords[i + 1] = p.map(coords[i + 1], minY, maxY, 0, 1);
+                const xLimit = aspectRatio;
+                coords[i] = p.map(coords[i], minX, maxX, -xLimit / 2, xLimit / 2);
+                coords[i + 1] = p.map(coords[i + 1], minY, maxY, -0.5, 0.5);
             }
         }
         return aspectRatio;
