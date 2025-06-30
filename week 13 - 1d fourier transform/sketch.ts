@@ -104,7 +104,6 @@ new p5((p: p5) => {
         const xy = calculatePhasorSum();
         p.strokeWeight(0.5);
         p.line(xy.x, xy.y, WIDTH / 2 - 1, xy.y);
-        console.log(xy);
     }
 
     function calculatePhasorSum() {
@@ -121,7 +120,8 @@ new p5((p: p5) => {
     p.mousePressed = (event: MouseEvent) => {
         console.log("mouseClicked:", event);
         if (event.button === 0) { // left click
-            if (event.target.tagName === "CANVAS") {
+            const target = event.target as HTMLElement;
+            if (target.tagName === "CANVAS") {
                 shuffle(phasors);
             }
         }
@@ -139,34 +139,33 @@ new p5((p: p5) => {
             }
         }
         if (event.code === "ArrowUp") {
-            isXAxis = !isXAxis;
-            updatePhasors();
-        } else if (event.code === "ArrowDown") {
             isTwoSided = !isTwoSided;
             updatePhasors();
+        } else if (event.code === "ArrowDown") {
+            isXAxis = !isXAxis;
+            updatePhasors();
         }
-        console.log("called");
         drawPhasors();
     }
 
     function initUI() {
-        const sel: Element = p.createSelect();
+        const sel: P5Select = p.createSelect() as P5Select;
         sel.position(10, 10);
         for (const key of COORDS_MAP.keys()) {
             sel.option(key);
         }
         sel.selected('Square Wave');
         sel.changed(() => {
-            coords = COORDS_MAP.get(sel.value())
+            coords = COORDS_MAP.get(sel.value()) as number[];
             updateSignal();
             updatePhasors();
             drawPhasors();
         });
 
-        const sli: Element = p.createSlider(0, 1, 1, 0.001);
+        const sli: P5Slider = p.createSlider(0, 1, 1, 0.001) as P5Slider;
         sli.position(10, 35);
         sli.input(() => {
-            quality = sli.value();
+            quality = sli.value() as number;
             drawPhasors();
         });
     }
@@ -305,7 +304,7 @@ new p5((p: p5) => {
         return aspectRatio;
     }
 
-    function shuffle(array) {
+    function shuffle(array: any[]) {
         let currentIndex = array.length;
 
         // While there remain elements to shuffle...
@@ -380,4 +379,18 @@ new p5((p: p5) => {
             return Math.atan2(this.re, this.im);
         }
     }
+
+    // missing types definitions
+    type P5Select = {
+        selected(val?: string): string | void;
+        changed(cb: () => void): void;
+        option(name: string, value?: string): void;
+        value(): string;
+    } & p5.Element;
+
+    type P5Slider = {
+        input(cb: () => void): void;
+        changed(cb: () => void): void;
+        value(): number;
+    } & p5.Element;
 });
