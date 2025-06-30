@@ -11,6 +11,7 @@ import dogCoords from './assets/dog.json';
 import dinosaurCoords from './assets/dinosaur.json';
 import birdCoords from './assets/bird.json';
 import sexyCoords from './assets/sexy.json';
+import indianCoords from './assets/indian.json';
 import catCoords from './assets/cat.json';
 
 new p5((p: p5) => {
@@ -31,6 +32,7 @@ new p5((p: p5) => {
         ['Dog', dogCoords],
         ['Bird', birdCoords],
         ['Dinosaur', dinosaurCoords],
+        ['Indian', indianCoords],
         ['Woman', womanCoords],
         ['Sexy', sexyCoords],
         ['Square Wave', squareWaveCoords],
