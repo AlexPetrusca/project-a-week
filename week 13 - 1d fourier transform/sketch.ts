@@ -2,10 +2,6 @@ import p5 from 'p5';
 import dogCoords from './assets/dog.json';
 import ellipseCoords from './assets/ellipse.json';
 import flagCoords from './assets/flag.json';
-import justiceCoords from './assets/justice.json';
-import lizardCoords from './assets/lizard.json';
-import roulette1Coords from './assets/roulette1.json';
-import roulette2Coords from './assets/roulette2.json';
 import squareWaveCoords from './assets/square-wave.json';
 
 new p5((p: p5) => {
@@ -18,12 +14,8 @@ new p5((p: p5) => {
     const COORDS_MAP = new Map([
         ['Square Wave', squareWaveCoords],
         ['Ellipse', ellipseCoords],
-        ['Roulette 1', roulette1Coords],
-        ['Roulette 2', roulette2Coords],
         ['Flag', flagCoords],
-        ['Lizard', lizardCoords],
         ['Dog', dogCoords],
-        ['Justice', justiceCoords],
     ]);
 
     let coords: number[] = squareWaveCoords;
