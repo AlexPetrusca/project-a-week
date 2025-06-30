@@ -12,7 +12,7 @@ new p5((p: p5) => {
     const WIDTH = 1080;
     const HEIGHT = 720;
 
-    const SCALE = 175;
+    const SCALE = 80;
     const BIN_WIDTH = 1;
     const SPEED = 0.02;
     const COORDS_MAP = new Map([
@@ -54,31 +54,34 @@ new p5((p: p5) => {
             time += SPEED;
         }
 
+        p.background(0);
 
 
-        let scale = WIDTH / 2 - 10;
-        let xOffset = WIDTH / 2;
-        let yOffset = HEIGHT / 2;
+
+        let margin = 10;
+        let scale = HEIGHT / 2 - margin;
+        let yOffset = scale;
+        let xOffset = WIDTH - scale - 2 * margin;
 
         // Plot coordinates
-        p.stroke(255);
+        p.stroke(255, 100);
         p.strokeWeight(2);
         for (let i = 0; i < timeSignal.length; i++) {
-            const x = scale * timeSignal.xs[i] + xOffset;
-            const y = scale * timeSignal.ys[i]  + yOffset;
+            const x = 0.5 * scale * (timeSignal.xs[i] + 1) + xOffset;
+            const y = 0.5 * scale * (timeSignal.ys[i] + 1) + yOffset;
+            if (i === 0) {
+                p.strokeWeight(8);
+            } else {
+                p.strokeWeight(2);
+            }
             p.point(x, y);
         }
 
         // Bounding box
         p.stroke(255, 100);
-        p.noFill();
         p.strokeWeight(1);
+        p.noFill();
         p.rect(xOffset, yOffset, scale, scale);
-
-        p.background(0);
-        p.stroke(255);
-        p.strokeWeight(2);
-
 
 
 
@@ -100,6 +103,8 @@ new p5((p: p5) => {
         }
 
         // Draw the trace
+        p.stroke(255);
+        p.strokeWeight(2);
         let lastPoint = null;
         for (let i = 0; i < trace.length; i++) {
             if (lastPoint) {
@@ -135,7 +140,7 @@ new p5((p: p5) => {
 
         // Draw horizontal line representing the projection of the phasor sum
         p.strokeWeight(0.5);
-        p.line(xy.x, xy.y, WIDTH / 2 - 1, xy.y);
+        p.line(xy.x, xy.y, WIDTH / 2, xy.y);
     }
 
     p.mousePressed = (event: MouseEvent) => {
@@ -175,7 +180,7 @@ new p5((p: p5) => {
         for (const key of COORDS_MAP.keys()) {
             sel.option(key);
         }
-        sel.selected('Square Wave');
+        sel.selected('Ellipse');
         sel.changed(() => {
             coords = COORDS_MAP.get(sel.value()) as number[];
             updateSignal();
@@ -312,14 +317,14 @@ new p5((p: p5) => {
         if (aspectRatio > 1) {
             for (let i = 0; i < coords.length; i += 2) {
                 const yLimit = 1 / aspectRatio;
-                coords[i] = p.map(coords[i], minX, maxX, -0.5, 0.5);
-                coords[i + 1] = p.map(coords[i + 1], minY, maxY, -yLimit / 2, yLimit / 2);
+                coords[i] = p.map(coords[i], minX, maxX, -1, 1);
+                coords[i + 1] = p.map(coords[i + 1], minY, maxY, -yLimit, yLimit);
             }
         } else {
             for (let i = 0; i < coords.length; i += 2) {
                 const xLimit = aspectRatio;
-                coords[i] = p.map(coords[i], minX, maxX, -xLimit / 2, xLimit / 2);
-                coords[i + 1] = p.map(coords[i + 1], minY, maxY, -0.5, 0.5);
+                coords[i] = p.map(coords[i], minX, maxX, -xLimit, xLimit);
+                coords[i + 1] = p.map(coords[i + 1], minY, maxY, -1, 1);
             }
         }
         return aspectRatio;
