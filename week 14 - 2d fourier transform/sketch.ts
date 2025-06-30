@@ -12,12 +12,12 @@ new p5((p: p5) => {
     const WIDTH = 1080;
     const HEIGHT = 720;
 
-    const SCALE = 80;
+    const SCALE = 150;
     const BIN_WIDTH = 1;
     const SPEED = 0.02;
     const COORDS_MAP = new Map([
-        ['Square Wave', squareWaveCoords],
         ['Ellipse', ellipseCoords],
+        ['Square Wave', squareWaveCoords],
         ['Roulette 1', roulette1Coords],
         ['Roulette 2', roulette2Coords],
         ['Flag', flagCoords],
@@ -26,10 +26,11 @@ new p5((p: p5) => {
         ['Justice', justiceCoords],
     ]);
 
-    let coords: number[] = squareWaveCoords;
+    let coords: number[] = ellipseCoords;
     let timeSignal: Signal2D;
     let freqSignal: FreqSignal2D;
-    const phasors: Phasor[] = [];
+    const phasorsX: Phasor[] = [];
+    const phasorsY: Phasor[] = [];
 
     let time = -SPEED;
     const trace: p5.Vector[] = [];
@@ -37,7 +38,6 @@ new p5((p: p5) => {
     let quality = 1;
     let isPaused = true;
     let isTwoSided = false;
-    let isXAxis = false;
 
     p.setup = () => {
         p.createCanvas(WIDTH, HEIGHT);
@@ -58,10 +58,10 @@ new p5((p: p5) => {
 
 
 
-        let margin = 10;
-        let scale = HEIGHT / 2 - margin;
+        let margin = 20;
+        let scale = (HEIGHT - margin) / 2;
         let yOffset = scale;
-        let xOffset = WIDTH - scale - 2 * margin;
+        let xOffset = WIDTH - scale - margin;
 
         // Plot coordinates
         p.stroke(255, 100);
@@ -69,12 +69,32 @@ new p5((p: p5) => {
         for (let i = 0; i < timeSignal.length; i++) {
             const x = 0.5 * scale * (timeSignal.xs[i] + 1) + xOffset;
             const y = 0.5 * scale * (timeSignal.ys[i] + 1) + yOffset;
-            if (i === 0) {
+
+            if (i === 0 || i == timeSignal.length - 1) {
                 p.strokeWeight(8);
             } else {
-                p.strokeWeight(2);
+                p.strokeWeight(4);
             }
+
+            if (i % 3 === 0) {
+                p.stroke(255, 0, 0);
+            } else if (i % 3 === 1) {
+                p.stroke(0, 255, 0);
+            } else {
+                p.stroke(0, 0, 255)
+            }
+
             p.point(x, y);
+        }
+
+        for (let i = 0; i < timeSignal.length - 1; i++) {
+            const x1 = 0.5 * scale * (timeSignal.xs[i] + 1) + xOffset;
+            const y1 = 0.5 * scale * (timeSignal.ys[i] + 1) + yOffset;
+            const x2 = 0.5 * scale * (timeSignal.xs[i + 1] + 1) + xOffset;
+            const y2 = 0.5 * scale * (timeSignal.ys[i + 1] + 1) + yOffset;
+            p.strokeWeight(1);
+            p.stroke(255)
+            p.line(x1, y1, x2, y2);
         }
 
         // Bounding box
@@ -86,42 +106,35 @@ new p5((p: p5) => {
 
 
         // Calculate the position of the phasor sum
-        const xy = p.createVector(WIDTH / 4, HEIGHT / 2);
-        const numPhasors = Math.floor(quality * phasors.length);
-        for (let i = 0; i < numPhasors; i++) {
-            const phasor = phasors[i];
-            const phi = phasor.omega * time - phasor.phase;
-            xy.add(p5.Vector.fromAngle(phi, phasor.radius));
-        }
+        let startVectorX = p.createVector(0.5 * WIDTH, 0.25 * HEIGHT);
+        let startVectorY = p.createVector(0.25 * HEIGHT, 0.75 * HEIGHT - 20);
+        const numPhasors = Math.floor(quality * phasorsX.length);
+        const posX = calculatePhasorPosition(phasorsX, numPhasors, startVectorX.copy());
+        const posY = calculatePhasorPosition(phasorsY, numPhasors, startVectorY.copy());
 
         // Build and manage the trace of the phasor sum
+        const TRACE_LIMIT = 500;
         if (!isPaused) {
-            trace.unshift(p.createVector(WIDTH / 2, xy.y));
-            if (trace.length > WIDTH / 2) {
+            trace.unshift(p.createVector(posX.x, posY.y));
+            if (trace.length > TRACE_LIMIT) {
                 trace.pop();
             }
         }
 
         // Draw the trace
-        p.stroke(255);
         p.strokeWeight(2);
-        let lastPoint = null;
-        for (let i = 0; i < trace.length; i++) {
-            if (lastPoint) {
-                p.line(lastPoint.x + i - 1, lastPoint.y, trace[i].x + i, trace[i].y);
-            } else {
-                p.point(trace[i].x + i, trace[i].y);
-            }
-            lastPoint = trace[i];
+        for (let i = trace.length - 1; i > 0; i--) {
+            p.stroke(Math.floor(255 * ((TRACE_LIMIT - i) / TRACE_LIMIT)));
+            p.line(trace[i].x, trace[i].y, trace[i - 1].x, trace[i - 1].y);
         }
 
-        // Draw phasors
+        // Draw phasors for x-axis
         p.stroke(255);
         p.strokeWeight(1);
         p.push()
-        p.translate(WIDTH / 4, HEIGHT / 2);
+        p.translate(startVectorX);
         for (let i = 0; i < numPhasors; i++) {
-            const phasor = phasors[i];
+            const phasor = phasorsX[i];
             const phi = phasor.omega * time - phasor.phase;
 
             p.noFill();
@@ -138,9 +151,43 @@ new p5((p: p5) => {
         }
         p.pop()
 
-        // Draw horizontal line representing the projection of the phasor sum
+        // Draw phasors for y-axis
+        p.stroke(255);
+        p.strokeWeight(1);
+        p.push()
+        p.translate(startVectorY);
+        for (let i = 0; i < numPhasors; i++) {
+            const phasor = phasorsY[i];
+            const phi = phasor.omega * time - phasor.phase;
+
+            p.noFill();
+            p.circle(0, 0, 2 * phasor.radius);
+
+            p.rotate(phi);
+            p.line(0, 0, phasor.radius, 0);
+
+            p.translate(phasor.radius, 0);
+            p.fill(255);
+            p.circle(0, 0, 5);
+
+            p.rotate(-phi);
+        }
+        p.pop()
+
+        // Draw the projections of the x-axis and y-axis phasors
         p.strokeWeight(0.5);
-        p.line(xy.x, xy.y, WIDTH / 2, xy.y);
+        p.line(posX.x, posX.y, posX.x, posY.y);
+        p.line(posY.x, posY.y, posX.x, posY.y);
+    }
+
+    function calculatePhasorPosition(phasors: Phasor[], numPhasors: number, startVector: p5.Vector): p5.Vector {
+        const xy = startVector;
+        for (let i = 0; i < numPhasors; i++) {
+            const phasor = phasors[i];
+            const phi = phasor.omega * time - phasor.phase;
+            xy.add(p5.Vector.fromAngle(phi, phasor.radius));
+        }
+        return xy;
     }
 
     p.mousePressed = (event: MouseEvent) => {
@@ -148,7 +195,8 @@ new p5((p: p5) => {
         if (event.button === 0) { // left click
             const target = event.target as HTMLElement;
             if (target.tagName === "CANVAS") {
-                shuffle(phasors);
+                shuffle(phasorsX);
+                shuffle(phasorsY);
             }
         }
         p.draw();
@@ -166,9 +214,6 @@ new p5((p: p5) => {
         }
         if (event.code === "ArrowUp") {
             isTwoSided = !isTwoSided;
-            updatePhasors();
-        } else if (event.code === "ArrowDown") {
-            isXAxis = !isXAxis;
             updatePhasors();
         }
         p.draw();
@@ -210,60 +255,73 @@ new p5((p: p5) => {
     }
 
     function updatePhasors() {
-        phasors.length = 0; // clear phasors
-        const axisSignal = (isXAxis) ? freqSignal.fxs : freqSignal.fys;
+        // clear phasors
+        phasorsX.length = 0;
+        phasorsY.length = 0;
+
         if (isTwoSided) {
-            twoSidedPhasors(axisSignal, SCALE, BIN_WIDTH);
+            twoSidedPhasors(SCALE, BIN_WIDTH);
         } else {
-            oneSidedPhasors(axisSignal, SCALE, BIN_WIDTH);
+            oneSidedPhasors(SCALE, BIN_WIDTH);
         }
-        console.log("phasors:", phasors);
+        console.log("phasorsX:", phasorsX);
+        console.log("phasorsY:", phasorsY);
     }
 
-    function twoSidedPhasors(freqSignal1D: Complex[], scale: number, binWidth: number) {
-        const N = freqSignal1D.length;
-        for (let i = 0; i < N; i++) {
-            if (i === 0 || i === N / 2) { // DC and Nyquist component
-                phasors.push({
-                    radius: scale * freqSignal1D[i].magnitude(),
-                    phase: freqSignal1D[i].iangle(),
-                    omega: binWidth * i,
-                });
-            } else if (i < N / 2) {
-                // positive frequency component
-                phasors.push({
-                    radius: scale * freqSignal1D[i].magnitude(),
-                    phase: freqSignal1D[i].iangle(),
-                    omega: binWidth * i,
-                });
-                // negative frequency component
-                phasors.push({
-                    radius: scale * freqSignal1D[N - i].magnitude(),
-                    phase: freqSignal1D[N - i].iangle(),
-                    omega: -binWidth * i,
-                });
+    function twoSidedPhasors(scale: number, binWidth: number) {
+        function apply(freqSignal1D: Complex[], phasors: Phasor[], rotation: number = 0) {
+            const N = freqSignal1D.length;
+            for (let i = 0; i < N; i++) {
+                if (i === 0 || i === N / 2) { // DC and Nyquist component
+                    phasors.push({
+                        radius: scale * freqSignal1D[i].magnitude(),
+                        phase: freqSignal1D[i].angle() - rotation,
+                        omega: binWidth * i,
+                    });
+                } else if (i < N / 2) {
+                    // positive frequency component
+                    phasors.push({
+                        radius: scale * freqSignal1D[i].magnitude(),
+                        phase: freqSignal1D[i].angle() - rotation,
+                        omega: binWidth * i,
+                    });
+                    // negative frequency component
+                    phasors.push({
+                        radius: scale * freqSignal1D[N - i].magnitude(),
+                        phase: freqSignal1D[N - i].angle() - rotation,
+                        omega: -binWidth * i,
+                    });
+                }
             }
         }
+
+        apply(freqSignal.fxs, phasorsX, 0);
+        apply(freqSignal.fys, phasorsY, Math.PI / 2);
     }
 
-    function oneSidedPhasors(freqSignal1D: Complex[], scale: number, binWidth: number) {
-        const N = freqSignal1D.length;
-        for (let i = 0; i < N; i++) {
-            if (i === 0 || i === N / 2) { // DC and Nyquist component
-                phasors.push({
-                    radius: scale * freqSignal1D[i].magnitude(),
-                    phase: freqSignal1D[i].iangle(),
-                    omega: binWidth * i,
-                });
-            } else if (i < N / 2) {
-                // sum of positive and negative components (mirrored)
-                phasors.push({
-                    radius: 2 * scale * freqSignal1D[i].magnitude(),
-                    phase: freqSignal1D[i].iangle(),
-                    omega: binWidth * i,
-                });
+    function oneSidedPhasors(scale: number, binWidth: number) {
+        function apply(freqSignal1D: Complex[], phasors: Phasor[], rotation: number = 0) {
+            const N = freqSignal1D.length;
+            for (let i = 0; i < N; i++) {
+                if (i === 0 || i === N / 2) { // DC and Nyquist component
+                    phasors.push({
+                        radius: scale * freqSignal1D[i].magnitude(),
+                        phase: freqSignal1D[i].angle() - rotation,
+                        omega: binWidth * i,
+                    });
+                } else if (i < N / 2) {
+                    // sum of positive and negative components (mirrored)
+                    phasors.push({
+                        radius: 2 * scale * freqSignal1D[i].magnitude(),
+                        phase: freqSignal1D[i].angle() - rotation,
+                        omega: binWidth * i,
+                    });
+                }
             }
         }
+
+        apply(freqSignal.fxs, phasorsX, 0);
+        apply(freqSignal.fys, phasorsY, Math.PI / 2);
     }
 
     function dft(timeSignal: number[]) {
