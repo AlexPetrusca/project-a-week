@@ -15,12 +15,13 @@ import indianCoords from './assets/indian.json';
 import catCoords from './assets/cat.json';
 
 new p5((p: p5) => {
-    const WIDTH = 1080;
-    const HEIGHT = 720;
+    const WIDTH = 1080; // canvas width
+    const HEIGHT = 720; // canvas height
+    const SCALE = 150; // scale factor for phasors
+    const BIN_WIDTH = 1; // bin width for frequency components
+    const TRACE_LIMIT = 500; // limit for the trace length
+    const SPEED = 0.02; // speed of time progression
 
-    const SCALE = 150;
-    const BIN_WIDTH = 1;
-    const SPEED = 0.02;
     const COORDS_MAP = new Map([
         ['Ellipse', ellipseCoords],
         ['Spiral', spiralCoords],
@@ -68,13 +69,46 @@ new p5((p: p5) => {
 
         p.background(0);
 
-
-
+        // draw the prerendered signal
         let margin = 20;
         let scale = (HEIGHT - margin) / 2;
         let yOffset = scale;
         let xOffset = WIDTH - scale - margin;
+        drawPrerender(xOffset, yOffset, scale);
 
+        // Calculate the position of the phasor sum
+        let startVectorX = p.createVector(0.5 * WIDTH, 0.25 * HEIGHT);
+        let startVectorY = p.createVector(0.25 * HEIGHT, 0.75 * HEIGHT - margin);
+        const numPhasors = Math.floor(quality * phasorsX.length);
+        const posX = calculatePhasorPosition(phasorsX, numPhasors, startVectorX.copy());
+        const posY = calculatePhasorPosition(phasorsY, numPhasors, startVectorY.copy());
+
+        // Build and truncate the trace of the phasor sum
+        if (!isPaused) {
+            trace.unshift(p.createVector(posX.x, posY.y));
+            if (trace.length > TRACE_LIMIT) {
+                trace.pop();
+            }
+        }
+
+        // Draw the trace
+        p.strokeWeight(2);
+        for (let i = trace.length - 1; i > 0; i--) {
+            p.stroke(Math.floor(255 * ((TRACE_LIMIT - i) / TRACE_LIMIT)));
+            p.line(trace[i].x, trace[i].y, trace[i - 1].x, trace[i - 1].y);
+        }
+
+        // Draw phasors for x and y axes
+        drawPhasors(phasorsX, startVectorX, numPhasors);
+        drawPhasors(phasorsY, startVectorY, numPhasors);
+
+        // Draw the projections of the x-axis and y-axis phasors
+        p.strokeWeight(0.5);
+        p.line(posX.x, posX.y, posX.x, posY.y);
+        p.line(posY.x, posY.y, posX.x, posY.y);
+    }
+
+    function drawPrerender(xOffset: number, yOffset: number, scale: number) {
         // Plot coordinates
         p.stroke(255, 100);
         p.strokeWeight(2);
@@ -114,39 +148,15 @@ new p5((p: p5) => {
         p.strokeWeight(1);
         p.noFill();
         p.rect(xOffset, yOffset, scale, scale);
+    }
 
-
-
-        // Calculate the position of the phasor sum
-        let startVectorX = p.createVector(0.5 * WIDTH, 0.25 * HEIGHT);
-        let startVectorY = p.createVector(0.25 * HEIGHT, 0.75 * HEIGHT - margin);
-        const numPhasors = Math.floor(quality * phasorsX.length);
-        const posX = calculatePhasorPosition(phasorsX, numPhasors, startVectorX.copy());
-        const posY = calculatePhasorPosition(phasorsY, numPhasors, startVectorY.copy());
-
-        // Build and manage the trace of the phasor sum
-        const TRACE_LIMIT = 500;
-        if (!isPaused) {
-            trace.unshift(p.createVector(posX.x, posY.y));
-            if (trace.length > TRACE_LIMIT) {
-                trace.pop();
-            }
-        }
-
-        // Draw the trace
-        p.strokeWeight(2);
-        for (let i = trace.length - 1; i > 0; i--) {
-            p.stroke(Math.floor(255 * ((TRACE_LIMIT - i) / TRACE_LIMIT)));
-            p.line(trace[i].x, trace[i].y, trace[i - 1].x, trace[i - 1].y);
-        }
-
-        // Draw phasors for x-axis
+    function drawPhasors(phasors: Phasor[], startVector: p5.Vector, numPhasors: number) {
         p.stroke(255);
         p.strokeWeight(1);
         p.push()
-        p.translate(startVectorX);
+        p.translate(startVector);
         for (let i = 0; i < numPhasors; i++) {
-            const phasor = phasorsX[i];
+            const phasor = phasors[i];
             const phi = phasor.omega * time - phasor.phase;
 
             p.noFill();
@@ -162,34 +172,6 @@ new p5((p: p5) => {
             p.rotate(-phi);
         }
         p.pop()
-
-        // Draw phasors for y-axis
-        p.stroke(255);
-        p.strokeWeight(1);
-        p.push()
-        p.translate(startVectorY);
-        for (let i = 0; i < numPhasors; i++) {
-            const phasor = phasorsY[i];
-            const phi = phasor.omega * time - phasor.phase;
-
-            p.noFill();
-            p.circle(0, 0, 2 * phasor.radius);
-
-            p.rotate(phi);
-            p.line(0, 0, phasor.radius, 0);
-
-            p.translate(phasor.radius, 0);
-            p.fill(255);
-            p.circle(0, 0, 5);
-
-            p.rotate(-phi);
-        }
-        p.pop()
-
-        // Draw the projections of the x-axis and y-axis phasors
-        p.strokeWeight(0.5);
-        p.line(posX.x, posX.y, posX.x, posY.y);
-        p.line(posY.x, posY.y, posX.x, posY.y);
     }
 
     function calculatePhasorPosition(phasors: Phasor[], numPhasors: number, startVector: p5.Vector): p5.Vector {
@@ -287,28 +269,30 @@ new p5((p: p5) => {
                 if (i === 0 || i === N / 2) { // DC and Nyquist component
                     phasors.push({
                         radius: scale * freqSignal1D[i].magnitude(),
-                        phase: freqSignal1D[i].angle() - rotation,
+                        phase: freqSignal1D[i].angle() + rotation,
                         omega: binWidth * i,
                     });
                 } else if (i < N / 2) {
                     // positive frequency component
                     phasors.push({
                         radius: scale * freqSignal1D[i].magnitude(),
-                        phase: freqSignal1D[i].angle() - rotation,
+                        phase: freqSignal1D[i].angle() + rotation,
                         omega: binWidth * i,
                     });
                     // negative frequency component
                     phasors.push({
                         radius: scale * freqSignal1D[N - i].magnitude(),
-                        phase: freqSignal1D[N - i].angle() - rotation,
+                        phase: freqSignal1D[N - i].angle() + rotation,
                         omega: -binWidth * i,
                     });
                 }
             }
         }
 
+        // X-axis (real part)
         apply(freqSignal.fxs, phasorsX, 0);
-        apply(freqSignal.fys, phasorsY, Math.PI / 2);
+        // 90-degree counter-clockwise rotation for Y-axis (imaginary part)
+        apply(freqSignal.fys, phasorsY, -Math.PI / 2);
     }
 
     function oneSidedPhasors(scale: number, binWidth: number) {
@@ -318,22 +302,24 @@ new p5((p: p5) => {
                 if (i === 0 || i === N / 2) { // DC and Nyquist component
                     phasors.push({
                         radius: scale * freqSignal1D[i].magnitude(),
-                        phase: freqSignal1D[i].angle() - rotation,
+                        phase: freqSignal1D[i].angle() + rotation,
                         omega: binWidth * i,
                     });
                 } else if (i < N / 2) {
                     // sum of positive and negative components (mirrored)
                     phasors.push({
                         radius: 2 * scale * freqSignal1D[i].magnitude(),
-                        phase: freqSignal1D[i].angle() - rotation,
+                        phase: freqSignal1D[i].angle() + rotation,
                         omega: binWidth * i,
                     });
                 }
             }
         }
 
+        // X-axis (real part)
         apply(freqSignal.fxs, phasorsX, 0);
-        apply(freqSignal.fys, phasorsY, Math.PI / 2);
+        // 90-degree counter-clockwise rotation for Y-axis (imaginary part)
+        apply(freqSignal.fys, phasorsY, -Math.PI / 2);
     }
 
     function dft(timeSignal: number[]) {
