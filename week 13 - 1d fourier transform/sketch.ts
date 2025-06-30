@@ -55,13 +55,7 @@ new p5((p: p5) => {
         drawPhasors();
     }
 
-    function drawTrace() {
-        // capture and translate right side
-        let rightSide = p.get(WIDTH / 2, 0, WIDTH, HEIGHT);
-        p.background(0);
-        p.image(rightSide, WIDTH / 2 + 1, 0);
-
-        // Calculate the position of the phasor sum
+    function calculatePhasorSum() {
         const xy = p.createVector(WIDTH / 4, HEIGHT / 2);
         const numPhasors = Math.floor(quality * phasors.length);
         for (let i = 0; i < numPhasors; i++) {
@@ -69,8 +63,17 @@ new p5((p: p5) => {
             const phi = phasor.omega * time - phasor.phase;
             xy.add(p5.Vector.fromAngle(phi, phasor.radius));
         }
+        return xy;
+    }
+
+    function drawTrace() {
+        // Capture and translate right side
+        let rightSide = p.get(WIDTH / 2, 0, WIDTH, HEIGHT);
+        p.background(0);
+        p.image(rightSide, WIDTH / 2 + 1, 0);
 
         // Draw the traced function
+        const xy = calculatePhasorSum();
         p.strokeWeight(2);
         if (lastPoint) {
             p.line(lastPoint.x + 1, lastPoint.y, WIDTH / 2 + 1, xy.y);
@@ -108,17 +111,11 @@ new p5((p: p5) => {
         }
         p.pop()
 
-        // Calculate the position of the phasor sum
-        const xy = p.createVector(WIDTH / 4, HEIGHT / 2);
-        for (let i = 0; i < numPhasors; i++) {
-            const phasor = phasors[i];
-            const phi = phasor.omega * time - phasor.phase;
-            xy.add(p5.Vector.fromAngle(phi, phasor.radius));
-        }
-
         // Draw horizontal line representing the projection of the phasor sum
+        const xy = calculatePhasorSum();
         p.strokeWeight(0.5);
         p.line(xy.x, xy.y, WIDTH / 2 - 1, xy.y);
+        console.log(xy);
     }
 
     p.mousePressed = (event: MouseEvent) => {
@@ -141,11 +138,11 @@ new p5((p: p5) => {
                 p.loop();
             }
         }
-        if (event.code === "ArrowUp" || event.code === "ArrowDown") {
-            isTwoSided = !isTwoSided;
-            updatePhasors();
-        } else if (event.code === "ArrowRight" || event.code === "ArrowLeft") {
+        if (event.code === "ArrowUp") {
             isXAxis = !isXAxis;
+            updatePhasors();
+        } else if (event.code === "ArrowDown") {
+            isTwoSided = !isTwoSided;
             updatePhasors();
         }
         console.log("called");
