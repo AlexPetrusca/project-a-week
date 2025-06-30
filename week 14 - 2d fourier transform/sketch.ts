@@ -36,7 +36,7 @@ new p5((p: p5) => {
         ['Square Wave', squareWaveCoords],
     ]);
 
-    let coords: number[] = ellipseCoords;
+    let coords: number[] = leafCoords;
     let timeSignal: Signal2D;
     let freqSignal: FreqSignal2D;
     const phasorsX: Phasor[] = [];
@@ -235,7 +235,7 @@ new p5((p: p5) => {
         for (const key of COORDS_MAP.keys()) {
             sel.option(key);
         }
-        sel.selected('Ellipse');
+        sel.selected('Leaf');
         sel.changed(() => {
             coords = COORDS_MAP.get(sel.value()) as number[];
             updateSignal();
