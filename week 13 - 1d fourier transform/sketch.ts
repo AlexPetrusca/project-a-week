@@ -32,7 +32,7 @@ new p5((p: p5) => {
     const phasors: Phasor[] = [];
 
     let lastPoint: p5.Vector | null = null;
-    let time = 0;
+    let time = -SPEED;
 
     let quality = 1;
     let isPaused = true;
@@ -41,7 +41,6 @@ new p5((p: p5) => {
 
     p.setup = () => {
         p.createCanvas(WIDTH, HEIGHT);
-        p.stroke(255);
         p.background(0);
         p.noLoop();
 
@@ -51,12 +50,42 @@ new p5((p: p5) => {
     }
 
     p.draw = () => {
-        // capture right side
-        let rightSide = p.get(WIDTH / 2, 0, WIDTH, HEIGHT);
-        p.background(0)
-        p.image(rightSide, WIDTH / 2 + 1, 0)
+        time += SPEED;
+        drawTrace();
+        drawPhasors();
+    }
 
-        // Draw phasors
+    function drawTrace() {
+        // capture and translate right side
+        let rightSide = p.get(WIDTH / 2, 0, WIDTH, HEIGHT);
+        p.background(0);
+        p.image(rightSide, WIDTH / 2 + 1, 0);
+
+        // Calculate the position of the phasor sum
+        const xy = p.createVector(WIDTH / 4, HEIGHT / 2);
+        const numPhasors = Math.floor(quality * phasors.length);
+        for (let i = 0; i < numPhasors; i++) {
+            const phasor = phasors[i];
+            const phi = phasor.omega * time - phasor.phase;
+            xy.add(p5.Vector.fromAngle(phi, phasor.radius));
+        }
+
+        // Draw the traced function
+        p.strokeWeight(2);
+        if (lastPoint) {
+            p.line(lastPoint.x + 1, lastPoint.y, WIDTH / 2 + 1, xy.y);
+        } else {
+            p.point(WIDTH / 2 + 1, xy.y);
+        }
+        lastPoint = p.createVector(WIDTH / 2 + 1, xy.y);
+    }
+
+    function drawPhasors() {
+        p.stroke(0);
+        p.fill(0);
+        p.rect(0, 0, WIDTH / 2 - 1, HEIGHT);
+
+        p.stroke(255);
         p.push()
         p.translate(WIDTH / 4, HEIGHT / 2);
         p.strokeWeight(1);
@@ -73,14 +102,14 @@ new p5((p: p5) => {
 
             p.translate(phasor.radius, 0);
             p.fill(255);
-            p.circle(0, 0, 6);
+            p.circle(0, 0, 5);
 
             p.rotate(-phi);
         }
         p.pop()
 
         // Calculate the position of the phasor sum
-        const xy = p.createVector(WIDTH / 4, HEIGHT / 2)
+        const xy = p.createVector(WIDTH / 4, HEIGHT / 2);
         for (let i = 0; i < numPhasors; i++) {
             const phasor = phasors[i];
             const phi = phasor.omega * time - phasor.phase;
@@ -89,19 +118,7 @@ new p5((p: p5) => {
 
         // Draw horizontal line representing the projection of the phasor sum
         p.strokeWeight(0.5);
-        p.line(xy.x, xy.y, WIDTH / 2 + 1, xy.y);
-
-        // Draw the traced function
-        p.strokeWeight(2);
-        if (lastPoint) {
-            p.line(lastPoint.x + 1, lastPoint.y, WIDTH / 2 + 1, xy.y);
-        } else {
-            p.point(WIDTH / 2 + 1, xy.y);
-        }
-        lastPoint = p.createVector(WIDTH / 2 + 1, xy.y);
-
-        // increment time
-        time += SPEED;
+        p.line(xy.x, xy.y, WIDTH / 2 - 1, xy.y);
     }
 
     p.mousePressed = (event: MouseEvent) => {
@@ -111,6 +128,7 @@ new p5((p: p5) => {
                 shuffle(phasors);
             }
         }
+        drawPhasors();
     }
 
     p.keyPressed = (event: KeyboardEvent) => {
@@ -130,6 +148,8 @@ new p5((p: p5) => {
             isXAxis = !isXAxis;
             updatePhasors();
         }
+        console.log("called");
+        drawPhasors();
     }
 
     function initUI() {
@@ -143,12 +163,14 @@ new p5((p: p5) => {
             coords = COORDS_MAP.get(sel.value())
             updateSignal();
             updatePhasors();
+            drawPhasors();
         });
 
         const sli: Element = p.createSlider(0, 1, 1, 0.001);
         sli.position(10, 35);
         sli.input(() => {
             quality = sli.value();
+            drawPhasors();
         });
     }
 
