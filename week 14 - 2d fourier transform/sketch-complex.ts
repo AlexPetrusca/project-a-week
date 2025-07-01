@@ -14,10 +14,10 @@ import sexyCoords from './assets/sexy.json';
 import indianCoords from './assets/indian.json';
 import catCoords from './assets/cat.json';
 
-export default new p5((p: p5) => {
+export default (p: p5) => {
     const WIDTH = 1080; // canvas width
     const HEIGHT = 720; // canvas height
-    const SCALE = 150; // scale factor for phasors
+    const SCALE = 300; // scale factor for phasors
     const BIN_WIDTH = 1; // bin width for frequency components
     const TRACE_LIMIT = 500; // limit for the trace length
     const SPEED = 0.02; // speed of time progression
@@ -40,17 +40,15 @@ export default new p5((p: p5) => {
     ]);
 
     let coords: number[] = leafCoords;
-    let timeSignal: Signal2D;
-    let freqSignal: FreqSignal2D;
-    const phasorsX: Phasor[] = [];
-    const phasorsY: Phasor[] = [];
+    let timeSignal: Complex[];
+    let freqSignal: Complex[];
+    const phasors: Phasor[] = [];
 
     let time = -SPEED;
     const trace: p5.Vector[] = [];
 
     let quality = 1;
     let isPaused = true;
-    let isTwoSided = true;
 
     p.setup = () => {
         p.createCanvas(WIDTH, HEIGHT);
@@ -62,7 +60,7 @@ export default new p5((p: p5) => {
         initUI();
     }
 
-    p.draw = draw
+    p.draw = draw;
 
     function draw(rerender: boolean = false) {
         if (!rerender) {
@@ -79,15 +77,13 @@ export default new p5((p: p5) => {
         drawPrerender(xOffset, yOffset, scale);
 
         // Calculate the position of the phasor sum
-        let startVectorX = p.createVector(0.5 * WIDTH, 0.25 * HEIGHT);
-        let startVectorY = p.createVector(0.25 * HEIGHT, 0.75 * HEIGHT - margin);
-        const numPhasors = Math.floor(quality * phasorsX.length);
-        const posX = calculatePhasorPosition(phasorsX, numPhasors, startVectorX.copy());
-        const posY = calculatePhasorPosition(phasorsY, numPhasors, startVectorY.copy());
+        let startVector = p.createVector(0.5 * HEIGHT, 0.5 * HEIGHT);
+        const numPhasors = Math.floor(quality * phasors.length);
+        const pos = calculatePhasorPosition(phasors, numPhasors, startVector.copy());
 
         // Build and truncate the trace of the phasor sum
         if (!rerender) {
-            trace.unshift(p.createVector(posX.x, posY.y));
+            trace.unshift(p.createVector(pos.x, pos.y));
             if (trace.length > TRACE_LIMIT) {
                 trace.pop();
             }
@@ -100,14 +96,8 @@ export default new p5((p: p5) => {
             p.line(trace[i].x, trace[i].y, trace[i - 1].x, trace[i - 1].y);
         }
 
-        // Draw phasors for x and y axes
-        drawPhasors(phasorsX, startVectorX, numPhasors);
-        drawPhasors(phasorsY, startVectorY, numPhasors);
-
-        // Draw the projections of the x-axis and y-axis phasors
-        p.strokeWeight(0.5);
-        p.line(posX.x, posX.y, posX.x, posY.y);
-        p.line(posY.x, posY.y, posX.x, posY.y);
+        // Draw phasors
+        drawPhasors(phasors, startVector, numPhasors);
     }
 
     function drawPrerender(xOffset: number, yOffset: number, scale: number) {
@@ -115,8 +105,8 @@ export default new p5((p: p5) => {
         p.stroke(255, 100);
         p.strokeWeight(2);
         for (let i = 0; i < timeSignal.length; i++) {
-            const x = 0.5 * scale * (timeSignal.xs[i] + 1) + xOffset;
-            const y = 0.5 * scale * (timeSignal.ys[i] + 1) + yOffset;
+            const x = 0.5 * scale * (timeSignal[i].re + 1) + xOffset;
+            const y = 0.5 * scale * (-timeSignal[i].im + 1) + yOffset;
 
             if (i === 0 || i == timeSignal.length - 1) {
                 p.strokeWeight(8);
@@ -136,10 +126,10 @@ export default new p5((p: p5) => {
         }
 
         for (let i = 0; i < timeSignal.length - 1; i++) {
-            const x1 = 0.5 * scale * (timeSignal.xs[i] + 1) + xOffset;
-            const y1 = 0.5 * scale * (timeSignal.ys[i] + 1) + yOffset;
-            const x2 = 0.5 * scale * (timeSignal.xs[i + 1] + 1) + xOffset;
-            const y2 = 0.5 * scale * (timeSignal.ys[i + 1] + 1) + yOffset;
+            const x1 = 0.5 * scale * (timeSignal[i].re + 1) + xOffset;
+            const y1 = 0.5 * scale * (-timeSignal[i].im + 1) + yOffset;
+            const x2 = 0.5 * scale * (timeSignal[i + 1].re + 1) + xOffset;
+            const y2 = 0.5 * scale * (-timeSignal[i + 1].im + 1) + yOffset;
             p.strokeWeight(1);
             p.stroke(255)
             p.line(x1, y1, x2, y2);
@@ -162,9 +152,11 @@ export default new p5((p: p5) => {
             const phi = phasor.omega * time - phasor.phase;
 
             p.noFill();
+            p.stroke(255, 100);
             p.circle(0, 0, 2 * phasor.radius);
 
             p.rotate(phi);
+            p.stroke(255);
             p.line(0, 0, phasor.radius, 0);
 
             p.translate(phasor.radius, 0);
@@ -191,8 +183,7 @@ export default new p5((p: p5) => {
         if (event.button === 0) { // left click
             const target = event.target as HTMLElement;
             if (target.tagName === "CANVAS") {
-                shuffle(phasorsX);
-                shuffle(phasorsY);
+                shuffle(phasors);
             }
         }
         draw(true);
@@ -207,10 +198,6 @@ export default new p5((p: p5) => {
             } else {
                 p.loop();
             }
-        }
-        if (event.code === "ArrowUp") {
-            isTwoSided = !isTwoSided;
-            updatePhasors();
         }
         draw(true);
     }
@@ -242,9 +229,7 @@ export default new p5((p: p5) => {
         console.log("aspectRatio:", aspectRatio);
 
         timeSignal = createSignal2D(coords);
-        const fxs = dft(timeSignal.xs);
-        const fys = dft(timeSignal.ys);
-        freqSignal = createFreqSignal2D(fxs, fys);
+        freqSignal = dft(timeSignal);
 
         console.log("timeSignal:", timeSignal);
         console.log("freqSignal:", freqSignal);
@@ -252,79 +237,39 @@ export default new p5((p: p5) => {
 
     function updatePhasors() {
         // clear phasors
-        phasorsX.length = 0;
-        phasorsY.length = 0;
+        phasors.length = 0;
 
-        if (isTwoSided) {
-            twoSidedPhasors(SCALE, BIN_WIDTH);
-        } else {
-            oneSidedPhasors(SCALE, BIN_WIDTH);
-        }
-        console.log("phasorsX:", phasorsX);
-        console.log("phasorsY:", phasorsY);
+        twoSidedPhasors(SCALE, BIN_WIDTH);
+        console.log("phasors:", phasors);
     }
 
     function twoSidedPhasors(scale: number, binWidth: number) {
-        function apply(freqSignal1D: Complex[], phasors: Phasor[], rotation: number = 0) {
-            const N = freqSignal1D.length;
-            for (let i = 0; i < N; i++) {
-                if (i === 0 || i === N / 2) { // DC and Nyquist component
-                    phasors.push({
-                        radius: scale * freqSignal1D[i].magnitude(),
-                        phase: freqSignal1D[i].angle() + rotation,
-                        omega: binWidth * i,
-                    });
-                } else if (i < N / 2) {
-                    // positive frequency component
-                    phasors.push({
-                        radius: scale * freqSignal1D[i].magnitude(),
-                        phase: freqSignal1D[i].angle() + rotation,
-                        omega: binWidth * i,
-                    });
-                    // negative frequency component
-                    phasors.push({
-                        radius: scale * freqSignal1D[N - i].magnitude(),
-                        phase: freqSignal1D[N - i].angle() + rotation,
-                        omega: -binWidth * i,
-                    });
-                }
+        const N = freqSignal.length;
+        for (let i = 0; i < N; i++) {
+            if (i === 0 || i === N / 2) { // DC and Nyquist component
+                phasors.push({
+                    radius: scale * freqSignal[i].magnitude(),
+                    phase: freqSignal[i].angle(),
+                    omega: binWidth * i,
+                });
+            } else if (i < N / 2) {
+                // positive frequency component
+                phasors.push({
+                    radius: scale * freqSignal[i].magnitude(),
+                    phase: freqSignal[i].angle(),
+                    omega: binWidth * i,
+                });
+                // negative frequency component
+                phasors.push({
+                    radius: scale * freqSignal[N - i].magnitude(),
+                    phase: freqSignal[N - i].angle(),
+                    omega: -binWidth * i,
+                });
             }
         }
-
-        // X-axis (real part)
-        apply(freqSignal.fxs, phasorsX, 0);
-        // 90-degree counter-clockwise rotation for Y-axis (imaginary part)
-        apply(freqSignal.fys, phasorsY, -Math.PI / 2);
     }
 
-    function oneSidedPhasors(scale: number, binWidth: number) {
-        function apply(freqSignal1D: Complex[], phasors: Phasor[], rotation: number = 0) {
-            const N = freqSignal1D.length;
-            for (let i = 0; i < N; i++) {
-                if (i === 0 || i === N / 2) { // DC and Nyquist component
-                    phasors.push({
-                        radius: scale * freqSignal1D[i].magnitude(),
-                        phase: freqSignal1D[i].angle() + rotation,
-                        omega: binWidth * i,
-                    });
-                } else if (i < N / 2) {
-                    // sum of positive and negative components (mirrored)
-                    phasors.push({
-                        radius: 2 * scale * freqSignal1D[i].magnitude(),
-                        phase: freqSignal1D[i].angle() + rotation,
-                        omega: binWidth * i,
-                    });
-                }
-            }
-        }
-
-        // X-axis (real part)
-        apply(freqSignal.fxs, phasorsX, 0);
-        // 90-degree counter-clockwise rotation for Y-axis (imaginary part)
-        apply(freqSignal.fys, phasorsY, -Math.PI / 2);
-    }
-
-    function dft(timeSignal: number[]) {
+    function dft(timeSignal: Complex[]) {
         const freqSignal: Complex[] = [];
 
         const N = timeSignal.length;
@@ -332,9 +277,9 @@ export default new p5((p: p5) => {
             let component = new Complex(0, 0);
             for (let n = 0; n < N; n++) {
                 const phi = 2 * Math.PI * k * n / N;
-                const re = timeSignal[n] * Math.cos(phi);
-                const im = -timeSignal[n] * Math.sin(phi);
-                component = component.add(new Complex(re, im));
+                const fourierRot = Complex.fromPolar(1, -phi);
+                const signal = timeSignal[n];
+                component = component.add(signal.mult(fourierRot));
             }
             freqSignal.push(component.scale(1/N));
         }
@@ -342,20 +287,12 @@ export default new p5((p: p5) => {
         return freqSignal;
     }
 
-    function createFreqSignal2D(fxs: Complex[], fys: Complex[]): FreqSignal2D {
-        return {
-            fxs: fxs,
-            fys: fys,
-            length: fxs.length,
-        };
-    }
-
-    function createSignal2D(xys: number[]): Signal2D {
-        return {
-            xs: xys.filter((_, i) => i % 2 === 0),
-            ys: xys.filter((_, i) => i % 2 === 1),
-            length: xys.length / 2,
-        };
+    function createSignal2D(xys: number[]): Complex[] {
+        const signal: Complex[] = [];
+        for (let i = 0; i < xys.length; i += 2) {
+            signal.push(new Complex(xys[i], -xys[i + 1]));
+        }
+        return signal;
     }
 
     function normalizeCoordinates(coords: number[]): number {
@@ -411,18 +348,6 @@ export default new p5((p: p5) => {
         omega: number;
     };
 
-    type Signal2D = {
-        xs: number[];
-        ys: number[];
-        length: number;
-    }
-
-    type FreqSignal2D = {
-        fxs: Complex[];
-        fys: Complex[];
-        length: number;
-    }
-
     class Complex {
         re: number;
         im: number;
@@ -473,5 +398,5 @@ export default new p5((p: p5) => {
         changed(cb: () => void): void;
         value(): number;
     } & p5.Element;
-});
+}
 
