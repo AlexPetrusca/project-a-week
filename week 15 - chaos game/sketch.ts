@@ -9,11 +9,21 @@ new p5((p: p5) => {
     let pivots: p5.Vector[] = [];
     let chaosPoint: p5.Vector;
     let hueOffset = 0;
+
     let lastIdx: number = 0;
     let secondLastIdx: number = 0;
 
     let accumulate = true; // whether to accumulate points or not
     let page = 0; // current page for different chaos walk methods
+    let lerpFn: LerpFunction = lerp; // default lerp function
+    let lerpId = 0; // id of the lerp function
+    let lerpFnMap: Map<number, LerpFunction> = new Map([
+        [0, lerp],
+        [1, arcLerp],
+        [2, bezierLerp],
+        [3, cubicBezierLerp],
+        [4, noisyBezierLerp],
+    ]);
 
     p.setup = () => {
         p.createCanvas(1080, 720, p.WEBGL);
@@ -52,6 +62,8 @@ new p5((p: p5) => {
             pivots.push(p.createVector(x, y));
             phase += 2 * Math.PI / NUM_PIVOTS; // spread pivots evenly around a circle
         }
+
+        lerpFn = lerpFnMap.get(lerpId) as LerpFunction;
 
         chaosPoint = p.createVector(p.random(p.width), p.random(p.height));
         p.background(0);
@@ -96,9 +108,7 @@ new p5((p: p5) => {
             const randPivot = pivots[randIdx];
 
             // create a new point between the current point and the random pivot
-            const halfX = p.lerp(chaosPoint.x, randPivot.x, STEP_RATIO);
-            const halfY = p.lerp(chaosPoint.y, randPivot.y, STEP_RATIO);
-            chaosPoint = p.createVector(halfX, halfY);
+            chaosPoint = lerpFn(chaosPoint, randPivot, STEP_RATIO);
             p.point(chaosPoint);
         }
     }
@@ -110,9 +120,7 @@ new p5((p: p5) => {
             if (randIdx !== lastIdx) {
                 const randPivot = pivots[randIdx];
                 // create a new point between the current point and the random pivot
-                const halfX = p.lerp(chaosPoint.x, randPivot.x, STEP_RATIO);
-                const halfY = p.lerp(chaosPoint.y, randPivot.y, STEP_RATIO);
-                chaosPoint = p.createVector(halfX, halfY);
+                chaosPoint = lerpFn(chaosPoint, randPivot, STEP_RATIO);
                 p.point(chaosPoint);
             }
             lastIdx = randIdx;
@@ -126,9 +134,7 @@ new p5((p: p5) => {
             if (randIdx !== lastIdx && randIdx !== secondLastIdx) {
                 const randPivot = pivots[randIdx];
                 // create a new point between the current point and the random pivot
-                const halfX = p.lerp(chaosPoint.x, randPivot.x, STEP_RATIO);
-                const halfY = p.lerp(chaosPoint.y, randPivot.y, STEP_RATIO);
-                chaosPoint = p.createVector(halfX, halfY);
+                chaosPoint = lerpFn(chaosPoint, randPivot, STEP_RATIO);
                 p.point(chaosPoint);
             }
             secondLastIdx = lastIdx;
@@ -144,9 +150,7 @@ new p5((p: p5) => {
             if (randIdx !== oppositeIdx) {
                 const randPivot = pivots[randIdx];
                 // create a new point between the current point and the random pivot
-                const halfX = p.lerp(chaosPoint.x, randPivot.x, STEP_RATIO);
-                const halfY = p.lerp(chaosPoint.y, randPivot.y, STEP_RATIO);
-                chaosPoint = p.createVector(halfX, halfY);
+                chaosPoint = lerpFn(chaosPoint, randPivot, STEP_RATIO);
                 p.point(chaosPoint);
             }
             lastIdx = randIdx;
@@ -172,6 +176,75 @@ new p5((p: p5) => {
                 p.background(0);
             }
         }
+        if (event.code === "Comma") {
+            if (lerpId > 0) {
+                lerpId--;
+                lerpFn = lerpFnMap.get(lerpId) as LerpFunction;
+                p.background(0);
+            }
+        } else if (event.code === "Period") {
+            if (lerpId < lerpFnMap.size - 1) {
+                lerpId++;
+                lerpFn = lerpFnMap.get(lerpId) as LerpFunction;
+                p.background(0);
+            }
+        }
+    }
+
+    function lerp(a: p5.Vector, b: p5.Vector, t: number) {
+        return p5.Vector.lerp(a, b, t);
+    }
+
+    function arcLerp(a: p5.Vector, b: p5.Vector, t: number, curveAmount = 0.5) {
+        // Midpoint
+        const mid = p5.Vector.add(a, b).mult(0.5);
+
+        // Perpendicular vector
+        const dir = p5.Vector.sub(b, a);
+        const perp = p.createVector(-dir.y, dir.x).normalize();
+
+        // Curve point: push midpoint outward along perpendicular
+        const control = p5.Vector.add(mid, perp.mult(curveAmount * dir.mag()));
+
+        // Quadratic Bézier interpolation
+        const ab = p5.Vector.lerp(a, control, t);
+        const bc = p5.Vector.lerp(control, b, t);
+        return p5.Vector.lerp(ab, bc, t);
+    }
+
+    function bezierLerp(a: p5.Vector, b: p5.Vector, t: number) {
+        const mid = p5.Vector.add(a, b).mult(0.5);
+        const offset = p.createVector(-(b.y - a.y), b.x - a.x).normalize().mult(50);
+        const control = p5.Vector.add(mid, offset);
+
+        const ab = p5.Vector.lerp(a, control, t);
+        const bc = p5.Vector.lerp(control, b, t);
+        return p5.Vector.lerp(ab, bc, t);
+    }
+
+    function noisyBezierLerp(a: p5.Vector, b: p5.Vector, t: number, noiseScale = 0.01) {
+        const mid = p5.Vector.add(a, b).mult(0.5);
+        const dir = p5.Vector.sub(b, a);
+        const normal = p.createVector(-dir.y, dir.x).normalize();
+
+        const n = p.noise(mid.x * noiseScale, mid.y * noiseScale);
+        const control = p5.Vector.add(mid, normal.mult(n * 100 - 50));
+
+        const ab = p5.Vector.lerp(a, control, t);
+        const bc = p5.Vector.lerp(control, b, t);
+        return p5.Vector.lerp(ab, bc, t);
+    }
+
+    function cubicBezierLerp(a: p5.Vector, b: p5.Vector, t: number) {
+        const normal = p.createVector(b.y - a.y, -(b.x - a.x)).normalize().mult(50);
+        const c1 = p5.Vector.add(chaosPoint, normal);
+        const c2 = p5.Vector.add(b, normal.mult(-1));
+        const ab = p5.Vector.lerp(a, c1, t);
+        const bc = p5.Vector.lerp(c1, c2, t);
+        const cd = p5.Vector.lerp(c2, b, t);
+        const abc = p5.Vector.lerp(ab, bc, t);
+        const bcd = p5.Vector.lerp(bc, cd, t);
+        return p5.Vector.lerp(abc, bcd, t);
     }
 
     type P5Slider = {
@@ -179,4 +252,6 @@ new p5((p: p5) => {
         changed(cb: () => void): void;
         value(): number;
     } & p5.Element;
+
+    type LerpFunction = (a: p5.Vector, b: p5.Vector, t: number) => p5.Vector;
 });
