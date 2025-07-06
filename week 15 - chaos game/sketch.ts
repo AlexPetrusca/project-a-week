@@ -19,10 +19,16 @@ new p5((p: p5) => {
     let lerpId = 0; // id of the lerp function
     let lerpFnMap: Map<number, LerpFunction> = new Map([
         [0, lerp],
-        [1, arcLerp],
-        [2, bezierLerp],
+        [1, bezierLerp],
+        [2, noisyBezierLerp],
         [3, cubicBezierLerp],
-        [4, noisyBezierLerp],
+        [4, arcLerp],
+        [5, catmullRomLerp],
+        [6, perlinLerp],
+        [7, sinusoidalLerp],
+        [8, magnetLerp],
+        [9, perlinMagnetLerp],
+        [10, experimentLerp],
     ]);
 
     p.setup = () => {
@@ -78,6 +84,7 @@ new p5((p: p5) => {
         switch (page) {
             case 0:
                 chaosWalkDefault(NUM_ITERATIONS);
+                // chaosWalkTest(NUM_ITERATIONS);
                 break;
             case 1:
                 chaosWalkUnique(NUM_ITERATIONS);
@@ -195,23 +202,6 @@ new p5((p: p5) => {
         return p5.Vector.lerp(a, b, t);
     }
 
-    function arcLerp(a: p5.Vector, b: p5.Vector, t: number, curveAmount = 0.5) {
-        // Midpoint
-        const mid = p5.Vector.add(a, b).mult(0.5);
-
-        // Perpendicular vector
-        const dir = p5.Vector.sub(b, a);
-        const perp = p.createVector(-dir.y, dir.x).normalize();
-
-        // Curve point: push midpoint outward along perpendicular
-        const control = p5.Vector.add(mid, perp.mult(curveAmount * dir.mag()));
-
-        // Quadratic Bézier interpolation
-        const ab = p5.Vector.lerp(a, control, t);
-        const bc = p5.Vector.lerp(control, b, t);
-        return p5.Vector.lerp(ab, bc, t);
-    }
-
     function bezierLerp(a: p5.Vector, b: p5.Vector, t: number) {
         const mid = p5.Vector.add(a, b).mult(0.5);
         const offset = p.createVector(-(b.y - a.y), b.x - a.x).normalize().mult(50);
@@ -247,11 +237,106 @@ new p5((p: p5) => {
         return p5.Vector.lerp(abc, bcd, t);
     }
 
+    function arcLerp(a: p5.Vector, b: p5.Vector, t: number, curveAmount = 0.5) {
+        // Midpoint
+        const mid = p5.Vector.add(a, b).mult(0.5);
+
+        // Perpendicular vector
+        const dir = p5.Vector.sub(b, a);
+        const perp = p.createVector(-dir.y, dir.x).normalize();
+
+        // Curve point: push midpoint outward along perpendicular
+        const control = p5.Vector.add(mid, perp.mult(curveAmount * dir.mag()));
+
+        // Quadratic Bézier interpolation
+        const ab = p5.Vector.lerp(a, control, t);
+        const bc = p5.Vector.lerp(control, b, t);
+        return p5.Vector.lerp(ab, bc, t);
+    }
+
+    function catmullRomLerp(p0: p5.Vector, p1: p5.Vector, t: number): p5.Vector {
+        const p2 = p.random(pivots);
+        const p3 = p.random(pivots);
+
+        const t2 = t * t;
+        const t3 = t2 * t;
+
+        const x = 0.5 * (
+            2 * p1.x +
+            (-p0.x + p2.x) * t +
+            (2*p0.x - 5*p1.x + 4*p2.x - p3.x) * t2 +
+            (-p0.x + 3*p1.x - 3*p2.x + p3.x) * t3
+        );
+
+        const y = 0.5 * (
+            2 * p1.y +
+            (-p0.y + p2.y) * t +
+            (2*p0.y - 5*p1.y + 4*p2.y - p3.y) * t2 +
+            (-p0.y + 3*p1.y - 3*p2.y + p3.y) * t3
+        );
+
+        return p.createVector(x, y);
+    }
+
+    function perlinLerp(a: p5.Vector, b: p5.Vector, t: number, noiseStrength = 400, noiseScale = 2, z = 0) {
+        // Linear interpolation base point
+        const base = p5.Vector.lerp(a, b, t);
+
+        // Direction from a to b
+        const dir = p5.Vector.sub(b, a);
+        const normal = p.createVector(-dir.y, dir.x).normalize();
+
+        // Perlin noise offset
+        const noiseVal = p.noise(t * noiseScale, z);
+        const offset = normal.mult((noiseVal - 0.5) * 2 * noiseStrength);
+
+        return base.add(offset);
+    }
+
+    // todo: you can modulate the phase to create a moving wave effect
+    function sinusoidalLerp(a: p5.Vector, b: p5.Vector, t: number, amplitude = 200, frequency = 1, phase = Math.PI/4) {
+        // Base linear interpolation
+        const base = p5.Vector.lerp(a, b, t);
+
+        // Direction and perpendicular
+        const dir = p5.Vector.sub(b, a);
+        const normal = p.createVector(-dir.y, dir.x).normalize();
+
+        // Sine-based offset
+        // const wave = Math.sin(2 * Math.PI * frequency * t + p.millis()/1000);
+        const wave = Math.sin(2 * Math.PI * frequency * t + phase);
+        const offset = normal.mult(wave * amplitude);
+
+        return base.add(offset);
+    }
+
+    function magnetLerp(from: p5.Vector, to: p5.Vector, t: number, strength = 200.0) {
+        const base = p5.Vector.lerp(from, to, t);
+        const magnet = p.createVector(0, 0); // center of the canvas as the magnet
+        const toMagnet = p5.Vector.sub(magnet, base);
+        const radius = toMagnet.mag();
+        const towardMagnet = toMagnet.mult(strength / radius);
+        return base.add(towardMagnet);
+    }
+
+    function perlinMagnetLerp(a: p5.Vector, b: p5.Vector, t: number) {
+        const pt1 = perlinLerp(a, b, t);
+        const pt2 = magnetLerp(a, pt1, t);
+        return pt2;
+    }
+
+    function experimentLerp(a: p5.Vector, b: p5.Vector, t: number) {
+        const pt1 = cubicBezierLerp(a, b, t);
+        const pt2 = perlinLerp(a, pt1, t);
+        const pt3 = magnetLerp(a, pt2, t);
+        return pt3;
+    }
+
     type P5Slider = {
         input(cb: () => void): void;
         changed(cb: () => void): void;
         value(): number;
     } & p5.Element;
 
-    type LerpFunction = (a: p5.Vector, b: p5.Vector, t: number) => p5.Vector;
+    type LerpFunction = (a: p5.Vector, b: p5.Vector, t: number, ...args: any[]) => p5.Vector;
 });
