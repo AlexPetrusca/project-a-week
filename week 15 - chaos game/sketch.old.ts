@@ -1,8 +1,4 @@
 import p5 from 'p5';
-// @ts-ignore
-import vertexShader from './shader.vert?raw';
-// @ts-ignore
-import fragmentShader from './shader.frag?raw';
 
 new p5((p: p5) => {
     const WIDTH = 1080;
@@ -16,13 +12,10 @@ new p5((p: p5) => {
     let hueOffset = 0;
 
     let accumulate = true; // whether to accumulate points or not
-    let myShader: p5.Shader;
 
     p.setup = () => {
         p.createCanvas(WIDTH, HEIGHT, p.WEBGL);
         p.colorMode(p.HSB, 360, 100, 100, 100)
-
-        myShader = p.createShader(vertexShader, fragmentShader);
 
         initScene();
         initUI();
@@ -32,6 +25,7 @@ new p5((p: p5) => {
         const slider: P5Slider = p.createSlider(0, 2, STEP_RATIO, 0.01) as P5Slider;
         slider.input(() => {
             STEP_RATIO = slider.value();
+            p.background(0);
         });
     }
 
@@ -52,26 +46,13 @@ new p5((p: p5) => {
     }
 
     p.draw = () => {
-        // // Simulate decay by overlaying a translucent black rectangle
-        // p.noStroke();
-        // p.fill(0, 1); // Higher alpha = faster fading
-        // p.rect(-WIDTH, -HEIGHT, 2 * WIDTH, 2 * HEIGHT);
-        //
-        // drawPivots();
-        //
-        // // p.stroke(hueOffset, 100, 100, 100);
-        // // hueOffset = (hueOffset + 1) % 360;
-        // p.stroke(255);
-        // p.strokeWeight(0.25);
-        // // chaosWalkDefault(5000);
-        // chaosWalkUnique(5000);
+        drawPivots();
 
-        p.shader(myShader);
-        // Update any uniforms if needed. For example, passing the elapsed time:
-        myShader.setUniform("u_time", p.millis() / 1000.0);
-
-        // Draw a rectangle that covers the entire canvas, triggering the shader.
-        p.rect(-WIDTH, -HEIGHT, 2 * WIDTH, 2 * HEIGHT);
+        p.stroke(hueOffset, 100, 100, 100);
+        hueOffset = (hueOffset + 1) % 360;
+        p.strokeWeight(0.25);
+        // chaosWalkDefault(5000);
+        chaosWalkUnique(5000);
     }
 
     function drawPivots() {
