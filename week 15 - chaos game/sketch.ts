@@ -22,13 +22,17 @@ new p5((p: p5) => {
     }
 
     function initUI() {
-        const stepRatioSlider: P5Slider = p.createSlider(0, 2, STEP_RATIO, 0.005) as P5Slider;
+        let line1 = p.createDiv();
+        p.createSpan("Step Ratio:").parent(line1);
+        const stepRatioSlider: P5Slider = p.createSlider(0, 2, STEP_RATIO, 0.005).parent(line1) as P5Slider;
         stepRatioSlider.input(() => {
             STEP_RATIO = stepRatioSlider.value();
             p.background(0);
         });
 
-        const numPivotsSlider: P5Slider = p.createSlider(3, 10, NUM_PIVOTS, 1) as P5Slider;
+        let line2 = p.createDiv();
+        p.createSpan("Number of Pivots:").parent(line2);
+        const numPivotsSlider: P5Slider = p.createSlider(3, 10, NUM_PIVOTS, 1).parent(line2) as P5Slider;
         numPivotsSlider.input(() => {
             NUM_PIVOTS = numPivotsSlider.value();
             initScene();
