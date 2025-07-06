@@ -1,0 +1,19 @@
+{
+  "name": "week-15-chaos-game",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "typescript": "~5.8.3",
+    "vite": "^7.0.0"
+  },
+  "dependencies": {
+    "@types/p5": "^1.7.6",
+    "p5": "^2.0.3"
+  }
+}
