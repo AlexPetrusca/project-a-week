@@ -5,6 +5,7 @@ import fadeVertShader from './shader.vert?raw';
 import fadeFragShader from './shader.frag?raw';
 
 new p5((p: p5) => {
+    let ZOOM = 0.0;
     let NUM_PIVOTS = 5; // number of pivots
     let STEP_RATIO = 0.5; // how far to step towards the pivot
     let DECAY_FACTOR = 0.002; // decay factor for the fade effect
@@ -118,6 +119,14 @@ new p5((p: p5) => {
             NUM_PIVOTS = numPivotsSlider.value();
             initScene();
         });
+
+        let line5 = p.createDiv();
+        p.createSpan("Zoom:").parent(line5);
+        const scaleSlider: P5Slider = p.createSlider(-1, 1, ZOOM, 0.01).parent(line5) as P5Slider;
+        scaleSlider.input(() => {
+            ZOOM = scaleSlider.value();
+            clearCanvas();
+        });
     }
 
     function initScene() {
@@ -137,6 +146,8 @@ new p5((p: p5) => {
     }
 
     p.draw = () => {
+        p.scale(10**ZOOM);
+
         if (showPivots) {
             drawPivots();
         }
@@ -145,6 +156,7 @@ new p5((p: p5) => {
             applyGlobalFade();
         }
 
+        p.background(0);
         p.image(pgMain, -p.width / 2, -p.height / 2);
 
         // STEP_RATIO += 0.0005; // slowly increase the step ratio to create a dynamic effect
@@ -167,9 +179,6 @@ new p5((p: p5) => {
         // fade canvas --> main canvas (pong)
         clearCanvas();
         pgMain.image(pgFade, -p.width / 2, -p.height / 2);
-
-        // clear webgl canvas (don't accumulate)
-        p.background(0);
     }
 
     function drawChaosWalk() {
