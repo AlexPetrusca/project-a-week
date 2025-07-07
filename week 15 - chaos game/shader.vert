@@ -1,3 +1,5 @@
+// Passthrough vertex shader
+
 precision mediump float;
 
 attribute vec3 aPosition;

@@ -7,37 +7,44 @@ import fadeFragShader from './shader.frag?raw';
 new p5((p: p5) => {
     let NUM_PIVOTS = 5; // number of pivots
     let STEP_RATIO = 0.5; // how far to step towards the pivot
+    let DECAY_FACTOR = 0.002; // decay factor for the fade effect
     const NUM_ITERATIONS = 5000; // number of iterations for the chaos walk
-    const NUM_PAGES = 4; // number of different chaos walk methods
+
+    const LERP_FNS: LerpFunction[] = [
+        basicLerp,      bezierLerp, noisyBezierLerp, cubicBezierLerp, arcLerp,
+        catmullRomLerp, perlinLerp, sinusoidalLerp,  magnetLerp,      perlinMagnetLerp,
+        experimentLerp
+    ];
+    const LERP_FN_NAMES: string[] = [
+        "Linear",      "Bezier",       "Noisy Bezier", "Cubic Bezier", "Arc",
+        "Catmull Rom", "Perlin Noise", "Sinusoidal",   "Magnetic",     "Perlin Magnetic",
+        "Experiment"];
+    let lerpFn: LerpFunction = LERP_FNS[0]; // default lerp function
+    let lerpId = 0; // id of the lerp function
+
+    const RULESETS: ChaosWalkFunction[] = [
+        chaosWalkDefault, chaosWalkUnique, chaosWalkDoubleUnique, chaosWalkNotOpposite
+    ];
+    const RULESET_NAMES: string[] = [
+        "Default", "Unique", "Double Unique", "Not Opposite"
+    ];
+    let chaosWalkFn: ChaosWalkFunction = RULESETS[0]; // default chaos walk function
+    let chaosWalkId = 0; // id of the chaos walk function
+    let lastIdx: number = 0;
+    let secondLastIdx: number = 0;
 
     let pivots: p5.Vector[] = [];
     let chaosPoint: p5.Vector;
     let hueOffset = 0;
-
-    let lastIdx: number = 0;
-    let secondLastIdx: number = 0;
 
     let pgMain: p5.Graphics;
     let pgFade: p5.Graphics;
     let fadeShader: p5.Shader;
 
     let accumulate = true; // whether to accumulate points or not
-    let page = 0; // current page for different chaos walk methods
-    let lerpFn: LerpFunction = basicLerp; // default lerp function
-    let lerpId = 0; // id of the lerp function
-    let lerpFnMap: Map<number, LerpFunction> = new Map([
-        [0, basicLerp],
-        [1, bezierLerp],
-        [2, noisyBezierLerp],
-        [3, cubicBezierLerp],
-        [4, arcLerp],
-        [5, catmullRomLerp],
-        [6, perlinLerp],
-        [7, sinusoidalLerp],
-        [8, magnetLerp],
-        [9, perlinMagnetLerp],
-        [10, experimentLerp],
-    ]);
+
+    let rulesetSelect: P5Select;
+    let lerpFnSelect: P5Select;
 
     p.setup = (width: number = 1080, height: number = 720) => {
         p.createCanvas(width, height, p.WEBGL);
@@ -55,16 +62,40 @@ new p5((p: p5) => {
 
     function initUI() {
         let line1 = p.createDiv();
-        p.createSpan("Step Ratio:").parent(line1);
-        const stepRatioSlider: P5Slider = p.createSlider(0, 2, STEP_RATIO, 0.005).parent(line1) as P5Slider;
+        p.createSpan("Ruleset:").parent(line1);
+        rulesetSelect = p.createSelect().parent(line1) as P5Select;
+        for (let i = 0; i < RULESET_NAMES.length; i++) {
+            rulesetSelect.option(RULESET_NAMES[i], i.toString());
+        }
+        rulesetSelect.changed(() => {
+            chaosWalkId = parseInt(rulesetSelect.value());
+            chaosWalkFn = RULESETS[chaosWalkId];
+            pgMain.background(0);
+        });
+
+        let line2 = p.createDiv();
+        p.createSpan("Lerp Function:").parent(line2);
+        lerpFnSelect = p.createSelect().parent(line2) as P5Select;
+        for (let i = 0; i < LERP_FN_NAMES.length; i++) {
+            lerpFnSelect.option(LERP_FN_NAMES[i], i.toString());
+        }
+        lerpFnSelect.changed(() => {
+            lerpId = parseInt(lerpFnSelect.value());
+            lerpFn = LERP_FNS[lerpId];
+            pgMain.background(0);
+        });
+
+        let line3 = p.createDiv();
+        p.createSpan("Step Ratio:").parent(line3);
+        const stepRatioSlider: P5Slider = p.createSlider(0, 2, STEP_RATIO, 0.005).parent(line3) as P5Slider;
         stepRatioSlider.input(() => {
             STEP_RATIO = stepRatioSlider.value();
             pgMain.background(0);
         });
 
-        let line2 = p.createDiv();
-        p.createSpan("Number of Pivots:").parent(line2);
-        const numPivotsSlider: P5Slider = p.createSlider(3, 10, NUM_PIVOTS, 1).parent(line2) as P5Slider;
+        let line4 = p.createDiv();
+        p.createSpan("Number of Pivots:").parent(line4);
+        const numPivotsSlider: P5Slider = p.createSlider(3, 10, NUM_PIVOTS, 1).parent(line4) as P5Slider;
         numPivotsSlider.input(() => {
             NUM_PIVOTS = numPivotsSlider.value();
             initScene();
@@ -108,7 +139,7 @@ new p5((p: p5) => {
     }
 
     function applyGlobalFade() {
-        // fadeShader.setUniform('u_decay', 0.95); // decay factor
+        fadeShader.setUniform('u_decay', DECAY_FACTOR);
         fadeShader.setUniform('u_texture', pgMain);
         pgFade.rect(-p.width / 2, -p.height / 2, p.width, p.height);
 
@@ -126,22 +157,7 @@ new p5((p: p5) => {
         pgMain.stroke(hueOffset, 100, 100, 100);
         hueOffset = (hueOffset + 1) % 360;
         pgMain.strokeWeight(0.25);
-        switch (page) {
-            case 0:
-                chaosWalkDefault(NUM_ITERATIONS);
-                break;
-            case 1:
-                chaosWalkUnique(NUM_ITERATIONS);
-                break;
-            case 2:
-                chaosWalkDoubleUnique(NUM_ITERATIONS);
-                break
-            case 3:
-                chaosWalkNotOpposite(NUM_ITERATIONS);
-                break;
-            default:
-                console.error("Unknown page");
-        }
+        chaosWalkFn(NUM_ITERATIONS);
     }
 
     function chaosWalkDefault(iterations = 10) {
@@ -205,30 +221,35 @@ new p5((p: p5) => {
         if (event.code === "Space") {
             initScene(); // reset the scene on space key press
         }
-        if (event.code === "KeyZ") {
-            accumulate = !accumulate;
-        }
+
         if (event.code === "ArrowDown") {
-            if (page > 0) {
-                page--;
+            if (chaosWalkId > 0) {
+                chaosWalkId--;
+                chaosWalkFn = RULESETS[chaosWalkId] as ChaosWalkFunction;
+                rulesetSelect.value(chaosWalkId);
                 pgMain.background(0);
             }
         } else if (event.code === "ArrowUp") {
-            if (page < NUM_PAGES - 1) {
-                page++;
+            if (chaosWalkId < RULESETS.length - 1) {
+                chaosWalkId++;
+                chaosWalkFn = RULESETS[chaosWalkId] as ChaosWalkFunction;
+                rulesetSelect.value(chaosWalkId);
                 pgMain.background(0);
             }
         }
+
         if (event.code === "Comma") {
             if (lerpId > 0) {
                 lerpId--;
-                lerpFn = lerpFnMap.get(lerpId) as LerpFunction;
+                lerpFn = LERP_FNS[lerpId] as LerpFunction;
+                lerpFnSelect.value(lerpId);
                 pgMain.background(0);
             }
         } else if (event.code === "Period") {
-            if (lerpId < lerpFnMap.size - 1) {
+            if (lerpId < LERP_FNS.length - 1) {
                 lerpId++;
-                lerpFn = lerpFnMap.get(lerpId) as LerpFunction;
+                lerpFn = LERP_FNS[lerpId] as LerpFunction;
+                lerpFnSelect.value(lerpId);
                 pgMain.background(0);
             }
         }
@@ -366,6 +387,14 @@ new p5((p: p5) => {
         return magnetLerp(a, pt2, t);
     }
 
+    // type definitions
+    type P5Select = {
+        selected(val?: string): string | void;
+        changed(cb: () => void): void;
+        option(name: string, value?: string): void;
+        value(): string;
+    } & p5.Element;
+
     type P5Slider = {
         input(cb: () => void): void;
         changed(cb: () => void): void;
@@ -373,4 +402,6 @@ new p5((p: p5) => {
     } & p5.Element;
 
     type LerpFunction = (a: p5.Vector, b: p5.Vector, t: number, ...args: any[]) => p5.Vector;
+
+    type ChaosWalkFunction = (iterations?: number) => void;
 });
