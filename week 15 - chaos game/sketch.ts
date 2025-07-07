@@ -30,8 +30,8 @@ new p5((p: p5) => {
     ];
     let chaosWalkFn: ChaosWalkFunction = RULESETS[0]; // default chaos walk function
     let chaosWalkId = 0; // id of the chaos walk function
-    let lastIdx: number = 0;
-    let secondLastIdx: number = 0;
+    let lastPivotIdx: number = 0;
+    let secondLastPivotIdx: number = 0;
 
     let pivots: p5.Vector[] = [];
     let chaosPoint: p5.Vector;
@@ -41,7 +41,7 @@ new p5((p: p5) => {
     let pgFade: p5.Graphics;
     let fadeShader: p5.Shader;
 
-    let hidePivots = false; // whether to show pivots or not
+    let showPivots = false; // whether to show or hide pivots
     let fadeOut = false; // whether to accumulate points or not
     let cycleHues = true; // whether to cycle through hues or not
 
@@ -73,9 +73,9 @@ new p5((p: p5) => {
             cycleHues = !cycleHues;
             clearCanvas();
         });
-        const showPivotsRadio = p.createCheckbox("Hide Pivots", hidePivots).parent(line0) as P5Checkbox;
+        const showPivotsRadio = p.createCheckbox("Show Pivots", showPivots).parent(line0) as P5Checkbox;
         showPivotsRadio.changed(() => {
-            hidePivots = !hidePivots;
+            showPivots = !showPivots;
             clearCanvas();
         });
 
@@ -137,15 +137,15 @@ new p5((p: p5) => {
     }
 
     p.draw = () => {
-        if (!hidePivots) {
+        if (showPivots) {
             drawPivots();
         }
         drawChaosWalk();
         if (fadeOut) {
             applyGlobalFade();
-        } else {
-            p.image(pgMain, -p.width / 2, -p.height / 2);
         }
+
+        p.image(pgMain, -p.width / 2, -p.height / 2);
 
         // STEP_RATIO += 0.0005; // slowly increase the step ratio to create a dynamic effect
     }
@@ -159,17 +159,17 @@ new p5((p: p5) => {
     }
 
     function applyGlobalFade() {
+        // main canvas --> fade canvas --> fade (ping)
         fadeShader.setUniform('u_decay', DECAY_FACTOR);
         fadeShader.setUniform('u_texture', pgMain);
         pgFade.rect(-p.width / 2, -p.height / 2, p.width, p.height);
 
-        // --- Show the result ---
-        p.background(0);
-        p.image(pgFade, -p.width / 2, -p.height / 2);
-
-        // --- Swap buffers (ping-pong) ---
+        // fade canvas --> main canvas (pong)
         clearCanvas();
         pgMain.image(pgFade, -p.width / 2, -p.height / 2);
+
+        // clear webgl canvas (don't accumulate)
+        p.background(0);
     }
 
     function drawChaosWalk() {
@@ -199,13 +199,13 @@ new p5((p: p5) => {
         for (let i = 0; i < iterations; i++) {
             // pick a random pivot, but not the same as the last one
             let randIdx = Math.floor(pivots.length * Math.random());
-            if (randIdx !== lastIdx) {
+            if (randIdx !== lastPivotIdx) {
                 const randPivot = pivots[randIdx];
                 // create a new point between the current point and the random pivot
                 chaosPoint = lerpFn(chaosPoint, randPivot, STEP_RATIO);
                 pgMain.point(chaosPoint);
             }
-            lastIdx = randIdx;
+            lastPivotIdx = randIdx;
         }
     }
 
@@ -213,14 +213,14 @@ new p5((p: p5) => {
         for (let i = 0; i < iterations; i++) {
             // pick a random pivot, but not the same as the last one
             let randIdx = Math.floor(pivots.length * Math.random());
-            if (randIdx !== lastIdx && randIdx !== secondLastIdx) {
+            if (randIdx !== lastPivotIdx && randIdx !== secondLastPivotIdx) {
                 const randPivot = pivots[randIdx];
                 // create a new point between the current point and the random pivot
                 chaosPoint = lerpFn(chaosPoint, randPivot, STEP_RATIO);
                 pgMain.point(chaosPoint);
             }
-            secondLastIdx = lastIdx;
-            lastIdx = randIdx;
+            secondLastPivotIdx = lastPivotIdx;
+            lastPivotIdx = randIdx;
         }
     }
 
@@ -228,14 +228,14 @@ new p5((p: p5) => {
         for (let i = 0; i < iterations; i++) {
             // pick a random pivot, but it has to be 2 places away from the last one
             let randIdx = Math.floor(pivots.length * Math.random());
-            const oppositeIdx = (lastIdx + NUM_PIVOTS / 2) % NUM_PIVOTS;
+            const oppositeIdx = (lastPivotIdx + NUM_PIVOTS / 2) % NUM_PIVOTS;
             if (randIdx !== oppositeIdx) {
                 const randPivot = pivots[randIdx];
                 // create a new point between the current point and the random pivot
                 chaosPoint = lerpFn(chaosPoint, randPivot, STEP_RATIO);
                 pgMain.point(chaosPoint);
             }
-            lastIdx = randIdx;
+            lastPivotIdx = randIdx;
         }
     }
 
