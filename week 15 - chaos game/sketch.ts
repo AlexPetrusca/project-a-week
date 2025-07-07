@@ -41,7 +41,9 @@ new p5((p: p5) => {
     let pgFade: p5.Graphics;
     let fadeShader: p5.Shader;
 
-    let accumulate = true; // whether to accumulate points or not
+    let hidePivots = false; // whether to show pivots or not
+    let fadeOut = false; // whether to accumulate points or not
+    let cycleHues = true; // whether to cycle through hues or not
 
     let rulesetSelect: P5Select;
     let lerpFnSelect: P5Select;
@@ -61,6 +63,22 @@ new p5((p: p5) => {
     }
 
     function initUI() {
+        let line0 = p.createDiv();
+        const accumulateRadio = p.createCheckbox("Fade Out", fadeOut).parent(line0) as P5Checkbox;
+        accumulateRadio.changed(() => {
+            fadeOut = !fadeOut;
+        });
+        const cycleHuesRadio = p.createCheckbox("Cycle Hues", cycleHues).parent(line0) as P5Checkbox;
+        cycleHuesRadio.changed(() => {
+            cycleHues = !cycleHues;
+            clearCanvas();
+        });
+        const showPivotsRadio = p.createCheckbox("Hide Pivots", hidePivots).parent(line0) as P5Checkbox;
+        showPivotsRadio.changed(() => {
+            hidePivots = !hidePivots;
+            clearCanvas();
+        });
+
         let line1 = p.createDiv();
         p.createSpan("Ruleset:").parent(line1);
         rulesetSelect = p.createSelect().parent(line1) as P5Select;
@@ -70,7 +88,7 @@ new p5((p: p5) => {
         rulesetSelect.changed(() => {
             chaosWalkId = parseInt(rulesetSelect.value());
             chaosWalkFn = RULESETS[chaosWalkId];
-            pgMain.background(0);
+            clearCanvas();
         });
 
         let line2 = p.createDiv();
@@ -82,7 +100,7 @@ new p5((p: p5) => {
         lerpFnSelect.changed(() => {
             lerpId = parseInt(lerpFnSelect.value());
             lerpFn = LERP_FNS[lerpId];
-            pgMain.background(0);
+            clearCanvas();
         });
 
         let line3 = p.createDiv();
@@ -90,7 +108,7 @@ new p5((p: p5) => {
         const stepRatioSlider: P5Slider = p.createSlider(0, 2, STEP_RATIO, 0.005).parent(line3) as P5Slider;
         stepRatioSlider.input(() => {
             STEP_RATIO = stepRatioSlider.value();
-            pgMain.background(0);
+            clearCanvas();
         });
 
         let line4 = p.createDiv();
@@ -115,13 +133,15 @@ new p5((p: p5) => {
         }
 
         chaosPoint = p.createVector(p.random(p.width), p.random(p.height));
-        pgMain.background(0);
+        clearCanvas();
     }
 
     p.draw = () => {
-        drawPivots();
+        if (!hidePivots) {
+            drawPivots();
+        }
         drawChaosWalk();
-        if (!accumulate) {
+        if (fadeOut) {
             applyGlobalFade();
         } else {
             p.image(pgMain, -p.width / 2, -p.height / 2);
@@ -148,14 +168,17 @@ new p5((p: p5) => {
         p.image(pgFade, -p.width / 2, -p.height / 2);
 
         // --- Swap buffers (ping-pong) ---
-        pgMain.background(0);
+        clearCanvas();
         pgMain.image(pgFade, -p.width / 2, -p.height / 2);
     }
 
     function drawChaosWalk() {
-        pgMain.stroke(255);
-        pgMain.stroke(hueOffset, 100, 100, 100);
-        hueOffset = (hueOffset + 1) % 360;
+        if (cycleHues) {
+            pgMain.stroke(hueOffset, 100, 100, 100);
+            hueOffset = (hueOffset + 1) % 360;
+        } else {
+            pgMain.stroke(255);
+        }
         pgMain.strokeWeight(0.25);
         chaosWalkFn(NUM_ITERATIONS);
     }
@@ -216,6 +239,12 @@ new p5((p: p5) => {
         }
     }
 
+    function clearCanvas(hardClear: boolean = false) {
+        if (hardClear || !fadeOut) {
+            pgMain.background(0);
+        }
+    }
+
     p.keyPressed = (event: KeyboardEvent) => {
         console.log("keyPressed:", event);
         if (event.code === "Space") {
@@ -227,14 +256,14 @@ new p5((p: p5) => {
                 chaosWalkId--;
                 chaosWalkFn = RULESETS[chaosWalkId] as ChaosWalkFunction;
                 rulesetSelect.value(chaosWalkId);
-                pgMain.background(0);
+                clearCanvas();
             }
         } else if (event.code === "ArrowUp") {
             if (chaosWalkId < RULESETS.length - 1) {
                 chaosWalkId++;
                 chaosWalkFn = RULESETS[chaosWalkId] as ChaosWalkFunction;
                 rulesetSelect.value(chaosWalkId);
-                pgMain.background(0);
+                clearCanvas();
             }
         }
 
@@ -243,14 +272,14 @@ new p5((p: p5) => {
                 lerpId--;
                 lerpFn = LERP_FNS[lerpId] as LerpFunction;
                 lerpFnSelect.value(lerpId);
-                pgMain.background(0);
+                clearCanvas();
             }
         } else if (event.code === "Period") {
             if (lerpId < LERP_FNS.length - 1) {
                 lerpId++;
                 lerpFn = LERP_FNS[lerpId] as LerpFunction;
                 lerpFnSelect.value(lerpId);
-                pgMain.background(0);
+                clearCanvas();
             }
         }
     }
@@ -399,6 +428,11 @@ new p5((p: p5) => {
         input(cb: () => void): void;
         changed(cb: () => void): void;
         value(): number;
+    } & p5.Element;
+
+    type P5Checkbox = {
+        changed(cb: () => void): void;
+        value(): boolean;
     } & p5.Element;
 
     type LerpFunction = (a: p5.Vector, b: p5.Vector, t: number, ...args: any[]) => p5.Vector;
