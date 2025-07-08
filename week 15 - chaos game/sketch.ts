@@ -55,8 +55,8 @@ new p5((p: p5) => {
         p.colorMode(p.HSB, 360, 100, 100, 100)
 
         // Render the scene and fade it in off-screen buffers
-        pgMain = p.createGraphics(width, height, p.WEBGL);
-        pgFade = p.createGraphics(width, height, p.WEBGL);
+        pgMain = p.createGraphics(2 * width, 2 * height, p.WEBGL);
+        pgFade = p.createGraphics(2 * width, 2 * height, p.WEBGL);
         fadeShader = pgFade.createShader(fadeVertShader, fadeFragShader);
         pgFade.shader(fadeShader);
 
@@ -169,7 +169,7 @@ new p5((p: p5) => {
         }
 
         p.background(0);
-        p.image(pgMain, -p.width / 2, -p.height / 2);
+        p.image(pgMain, -p.width, -p.height);
 
         // STEP_RATIO += 0.0005; // slowly increase the step ratio to create a dynamic effect
     }
@@ -186,11 +186,11 @@ new p5((p: p5) => {
         // main canvas --> fade canvas --> fade (ping)
         fadeShader.setUniform('u_decay', DECAY_FACTOR);
         fadeShader.setUniform('u_texture', pgMain);
-        pgFade.rect(-p.width / 2, -p.height / 2, p.width, p.height);
+        pgFade.rect(-p.width, -p.height, 2 * p.width, 2 * p.height);
 
         // fade canvas --> main canvas (pong)
         clearCanvas();
-        pgMain.image(pgFade, -p.width / 2, -p.height / 2);
+        pgMain.image(pgFade, -p.width, -p.height);
     }
 
     function drawChaosWalk() {
