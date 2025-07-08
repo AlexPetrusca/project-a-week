@@ -106,7 +106,7 @@ new p5((p: p5) => {
             clearCanvas();
         });
         let line2_2 = p.createDiv().class("ui-row").parent(column2);
-        p.createSpan("Lerp Function:").class("label").parent(line2_2);
+        p.createSpan("Interpolation:").class("label").parent(line2_2);
         lerpFnSelect = p.createSelect().parent(line2_2) as P5Select;
         for (let i = 0; i < LERP_FN_NAMES.length; i++) {
             lerpFnSelect.option(LERP_FN_NAMES[i], i.toString());
@@ -167,7 +167,6 @@ new p5((p: p5) => {
         animationSpeedSlider.input(() => {
             ANIMATION_SPEED = animationSpeedSlider.value();
         });
-
     }
 
     function initScene() {
