@@ -1,0 +1,18 @@
+.ui-container {
+    display: flex;
+    flex-grow: 1;
+}
+
+.ui-column {
+    margin-right: 30px;
+}
+
+.ui-row {
+    display: flex;
+    align-items: center;
+    height: 30px;
+}
+
+.label {
+    margin-right: 5px;
+}

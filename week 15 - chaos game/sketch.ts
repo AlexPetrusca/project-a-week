@@ -8,7 +8,7 @@ new p5((p: p5) => {
     let ZOOM = 0.0;
     let NUM_PIVOTS = 5; // number of pivots
     let STEP_RATIO = 0.5; // how far to step towards the pivot
-    let DECAY_FACTOR = 0.002; // decay factor for the fade effect
+    let DECAY_FACTOR = 0.01; // decay factor for the fade effect
     let DOT_SIZE = 0.25; // size of each point on the plot
     const NUM_ITERATIONS = 5000; // number of iterations for the chaos walk
 
@@ -65,25 +65,31 @@ new p5((p: p5) => {
     }
 
     function initUI() {
-        let line0 = p.createDiv();
-        const accumulateRadio = p.createCheckbox("Fade Out", fadeOut).parent(line0) as P5Checkbox;
+        let container = p.createDiv().class("ui-container").style("width", p.width.toString())
+
+        let column1 = p.createDiv().class("ui-column").parent(container);
+        let line1_1 = p.createDiv().class("ui-row").parent(column1);
+        const accumulateRadio = p.createCheckbox("Fade Out", fadeOut).parent(line1_1) as P5Checkbox;
         accumulateRadio.changed(() => {
             fadeOut = !fadeOut;
         });
-        const cycleHuesRadio = p.createCheckbox("Cycle Hues", cycleHues).parent(line0) as P5Checkbox;
+        let line1_2 = p.createDiv().class("ui-row").parent(column1);
+        const cycleHuesRadio = p.createCheckbox("Cycle Hues", cycleHues).parent(line1_2) as P5Checkbox;
         cycleHuesRadio.changed(() => {
             cycleHues = !cycleHues;
             clearCanvas();
         });
-        const showPivotsRadio = p.createCheckbox("Show Pivots", showPivots).parent(line0) as P5Checkbox;
+        let line1_3 = p.createDiv().class("ui-row").parent(column1);
+        const showPivotsRadio = p.createCheckbox("Show Pivots", showPivots).parent(line1_3) as P5Checkbox;
         showPivotsRadio.changed(() => {
             showPivots = !showPivots;
             clearCanvas();
         });
 
-        let line1 = p.createDiv();
-        p.createSpan("Ruleset:").parent(line1);
-        rulesetSelect = p.createSelect().parent(line1) as P5Select;
+        let column2 = p.createDiv().class("ui-column").parent(container);
+        let line2_1 = p.createDiv().class("ui-row").parent(column2);
+        p.createSpan("Ruleset:").class("label").parent(line2_1);
+        rulesetSelect = p.createSelect().parent(line2_1) as P5Select;
         for (let i = 0; i < RULESET_NAMES.length; i++) {
             rulesetSelect.option(RULESET_NAMES[i], i.toString());
         }
@@ -92,10 +98,9 @@ new p5((p: p5) => {
             chaosWalkFn = RULESETS[chaosWalkId];
             clearCanvas();
         });
-
-        let line2 = p.createDiv();
-        p.createSpan("Lerp Function:").parent(line2);
-        lerpFnSelect = p.createSelect().parent(line2) as P5Select;
+        let line2_2 = p.createDiv().class("ui-row").parent(column2);
+        p.createSpan("Lerp Function:").class("label").parent(line2_2);
+        lerpFnSelect = p.createSelect().parent(line2_2) as P5Select;
         for (let i = 0; i < LERP_FN_NAMES.length; i++) {
             lerpFnSelect.option(LERP_FN_NAMES[i], i.toString());
         }
@@ -104,26 +109,25 @@ new p5((p: p5) => {
             lerpFn = LERP_FNS[lerpId];
             clearCanvas();
         });
-
-        let line3 = p.createDiv();
-        p.createSpan("Step Ratio:").parent(line3);
-        const stepRatioSlider: P5Slider = p.createSlider(0, 2, STEP_RATIO, 0.005).parent(line3) as P5Slider;
+        let line2_3 = p.createDiv().class("ui-row").parent(column2);
+        p.createSpan("Step Ratio:").parent(line2_3);
+        const stepRatioSlider: P5Slider = p.createSlider(0, 2, STEP_RATIO, 0.005).parent(line2_3) as P5Slider;
         stepRatioSlider.input(() => {
             STEP_RATIO = stepRatioSlider.value();
             clearCanvas();
         });
 
-        let line4 = p.createDiv();
-        p.createSpan("Number of Pivots:").parent(line4);
-        const numPivotsSlider: P5Slider = p.createSlider(3, 10, NUM_PIVOTS, 1).parent(line4) as P5Slider;
+        let column3 = p.createDiv().class("ui-column").parent(container);
+        let line3_1 = p.createDiv().class("ui-row").parent(column3);
+        p.createSpan("Number of Pivots:").parent(line3_1);
+        const numPivotsSlider: P5Slider = p.createSlider(3, 10, NUM_PIVOTS, 1).parent(line3_1) as P5Slider;
         numPivotsSlider.input(() => {
             NUM_PIVOTS = numPivotsSlider.value();
             initScene();
         });
-
-        let line5 = p.createDiv();
-        p.createSpan("Zoom:").parent(line5);
-        const scaleSlider: P5Slider = p.createSlider(-1, 1, ZOOM, 0.01).parent(line5) as P5Slider;
+        let line3_2 = p.createDiv().class("ui-row").parent(column3);
+        p.createSpan("Zoom:").parent(line3_2);
+        const scaleSlider: P5Slider = p.createSlider(-1, 1, ZOOM, 0.01).parent(line3_2) as P5Slider;
         scaleSlider.input(() => {
             ZOOM = scaleSlider.value();
             for (const pivot of pivots) {
@@ -133,10 +137,9 @@ new p5((p: p5) => {
             }
             clearCanvas();
         });
-
-        let line6 = p.createDiv();
-        p.createSpan("Dot Size:").parent(line6);
-        const dotSizeSlider: P5Slider = p.createSlider(0.0, 2, DOT_SIZE, 0.05).parent(line6) as P5Slider;
+        let line3_3 = p.createDiv().class("ui-row").parent(column3);
+        p.createSpan("Dot Size:").parent(line3_3);
+        const dotSizeSlider: P5Slider = p.createSlider(0.0, 2, DOT_SIZE, 0.05).parent(line3_3) as P5Slider;
         dotSizeSlider.input(() => {
             DOT_SIZE = dotSizeSlider.value();
             clearCanvas();
