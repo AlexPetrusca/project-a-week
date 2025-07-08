@@ -9,6 +9,7 @@ new p5((p: p5) => {
     let NUM_PIVOTS = 5; // number of pivots
     let STEP_RATIO = 0.5; // how far to step towards the pivot
     let DECAY_FACTOR = 0.002; // decay factor for the fade effect
+    let DOT_SIZE = 0.25; // size of each point on the plot
     const NUM_ITERATIONS = 5000; // number of iterations for the chaos walk
 
     const LERP_FNS: LerpFunction[] = [
@@ -125,6 +126,19 @@ new p5((p: p5) => {
         const scaleSlider: P5Slider = p.createSlider(-1, 1, ZOOM, 0.01).parent(line5) as P5Slider;
         scaleSlider.input(() => {
             ZOOM = scaleSlider.value();
+            for (const pivot of pivots) {
+                const direction = pivot.normalize();
+                const scaleVal = 10**ZOOM * (p.height - 100) / 2;
+                pivot.set(scaleVal * direction.x, scaleVal * direction.y);
+            }
+            clearCanvas();
+        });
+
+        let line6 = p.createDiv();
+        p.createSpan("Dot Size:").parent(line6);
+        const dotSizeSlider: P5Slider = p.createSlider(0.0, 2, DOT_SIZE, 0.05).parent(line6) as P5Slider;
+        dotSizeSlider.input(() => {
+            DOT_SIZE = dotSizeSlider.value();
             clearCanvas();
         });
     }
@@ -133,7 +147,7 @@ new p5((p: p5) => {
         pivots = [];
 
         let phase = 2 * Math.PI * Math.random();
-        const radius = (p.height - 100)/2;
+        const radius = 10**ZOOM * (p.height - 100) / 2;
         for (let i = 0; i < NUM_PIVOTS; i++) {
             const x = radius * Math.cos(phase);
             const y = radius * Math.sin(phase);
@@ -146,8 +160,6 @@ new p5((p: p5) => {
     }
 
     p.draw = () => {
-        p.scale(10**ZOOM);
-
         if (showPivots) {
             drawPivots();
         }
@@ -188,7 +200,7 @@ new p5((p: p5) => {
         } else {
             pgMain.stroke(255);
         }
-        pgMain.strokeWeight(0.25);
+        pgMain.strokeWeight(DOT_SIZE);
         chaosWalkFn(NUM_ITERATIONS);
     }
 
