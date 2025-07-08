@@ -47,8 +47,15 @@ new p5((p: p5) => {
     let fadeOut = false; // whether to accumulate points or not
     let cycleHues = true; // whether to cycle through hues or not
 
+    // Animation
+    let animate = false; // sweep through different values of step size
+    let ANIMATION_SPEED = 0.0005; // how fast to modulate step size
+    let animatePhase = 0.5;
+    let animateTime = 0.0;
+
     let rulesetSelect: P5Select;
     let lerpFnSelect: P5Select;
+    let stepRatioSlider: P5Slider;
 
     p.setup = (width: number = 1080, height: number = 720) => {
         p.createCanvas(width, height, p.WEBGL);
@@ -69,19 +76,19 @@ new p5((p: p5) => {
 
         let column1 = p.createDiv().class("ui-column").parent(container);
         let line1_1 = p.createDiv().class("ui-row").parent(column1);
-        const accumulateRadio = p.createCheckbox("Fade Out", fadeOut).parent(line1_1) as P5Checkbox;
-        accumulateRadio.changed(() => {
+        const accumulateCheckbox = p.createCheckbox("Fade Out", fadeOut).parent(line1_1) as P5Checkbox;
+        accumulateCheckbox.changed(() => {
             fadeOut = !fadeOut;
         });
         let line1_2 = p.createDiv().class("ui-row").parent(column1);
-        const cycleHuesRadio = p.createCheckbox("Cycle Hues", cycleHues).parent(line1_2) as P5Checkbox;
-        cycleHuesRadio.changed(() => {
+        const cycleHuesCheckbox = p.createCheckbox("Cycle Hues", cycleHues).parent(line1_2) as P5Checkbox;
+        cycleHuesCheckbox.changed(() => {
             cycleHues = !cycleHues;
             clearCanvas();
         });
         let line1_3 = p.createDiv().class("ui-row").parent(column1);
-        const showPivotsRadio = p.createCheckbox("Show Pivots", showPivots).parent(line1_3) as P5Checkbox;
-        showPivotsRadio.changed(() => {
+        const showPivotsCheckbox = p.createCheckbox("Show Pivots", showPivots).parent(line1_3) as P5Checkbox;
+        showPivotsCheckbox.changed(() => {
             showPivots = !showPivots;
             clearCanvas();
         });
@@ -111,7 +118,7 @@ new p5((p: p5) => {
         });
         let line2_3 = p.createDiv().class("ui-row").parent(column2);
         p.createSpan("Step Ratio:").parent(line2_3);
-        const stepRatioSlider: P5Slider = p.createSlider(0, 2, STEP_RATIO, 0.005).parent(line2_3) as P5Slider;
+        stepRatioSlider = p.createSlider(0, 2, STEP_RATIO, 0.005).parent(line2_3) as P5Slider;
         stepRatioSlider.input(() => {
             STEP_RATIO = stepRatioSlider.value();
             clearCanvas();
@@ -144,6 +151,23 @@ new p5((p: p5) => {
             DOT_SIZE = dotSizeSlider.value();
             clearCanvas();
         });
+
+        let column4 = p.createDiv().class("ui-column").parent(container);
+        let line4_1 = p.createDiv().class("ui-row").parent(column4);
+        const animateCheckbox = p.createCheckbox("Animate", animate).parent(line4_1) as P5Checkbox;
+        animateCheckbox.changed(() => {
+            animateTime = 0;
+            // animatePhase = Math.asin(STEP_RATIO - 1);
+            animatePhase = STEP_RATIO / 2 + 1;
+            animate = !animate;
+        });
+        let line4_2 = p.createDiv().class("ui-row").parent(column4);
+        p.createSpan("Animation Speed:").parent(line4_2);
+        const animationSpeedSlider: P5Slider = p.createSlider(0.0, 0.001, ANIMATION_SPEED, 0.00005).parent(line4_2) as P5Slider;
+        animationSpeedSlider.input(() => {
+            ANIMATION_SPEED = animationSpeedSlider.value();
+        });
+
     }
 
     function initScene() {
@@ -174,7 +198,12 @@ new p5((p: p5) => {
         p.background(0);
         p.image(pgMain, -p.width, -p.height);
 
-        // STEP_RATIO += 0.0005; // slowly increase the step ratio to create a dynamic effect
+        if (animate) {
+            animateTime += ANIMATION_SPEED;
+            // STEP_RATIO = Math.sin(animateTime + animatePhase) + 1;
+            STEP_RATIO = Math.abs(((animateTime + animatePhase) % 2) - 1) * 2;
+            stepRatioSlider.value(STEP_RATIO);
+        }
     }
 
     function drawPivots() {
