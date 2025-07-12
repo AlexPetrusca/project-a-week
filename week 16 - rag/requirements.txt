@@ -1,0 +1,17 @@
+# ml stuff
+numpy
+scipy
+scikit-learn
+matplotlib
+ipywidgets
+# lang chain
+langchain
+langchain_community
+langchain-openai
+langchain-ollama
+langchainhub
+# misc stuff
+chromadb
+tiktoken
+python-dotenv
+pillow
