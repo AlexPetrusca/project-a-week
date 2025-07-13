@@ -7,11 +7,12 @@ ipywidgets
 # lang chain
 langchain
 langchain_community
-langchain-openai
 langchain-ollama
 langchainhub
 # misc stuff
 chromadb
-tiktoken
-python-dotenv
 pillow
+python-dotenv
+faiss-cpu
+beautifulsoup4
+wikipedia
