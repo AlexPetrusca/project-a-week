@@ -1,19 +1,22 @@
-# ml stuff
+# general ml stuff
 numpy
 scipy
 scikit-learn
 matplotlib
 ipywidgets
-# lang chain
+# langchain
 langchain
 langchain_community
 langchain-ollama
 langchainhub
-# misc stuff
-pillow
-python-dotenv
+# langchain dependencies
 pydantic
 chromadb
 faiss-cpu
 beautifulsoup4
 wikipedia
+youtube_transcript_api
+# misc
+python-dotenv
+requests
+pillow
