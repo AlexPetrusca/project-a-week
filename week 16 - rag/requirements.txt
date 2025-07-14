@@ -10,9 +10,10 @@ langchain_community
 langchain-ollama
 langchainhub
 # misc stuff
-chromadb
 pillow
 python-dotenv
+pydantic
+chromadb
 faiss-cpu
 beautifulsoup4
 wikipedia
