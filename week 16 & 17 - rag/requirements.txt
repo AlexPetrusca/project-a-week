@@ -20,3 +20,4 @@ youtube_transcript_api
 python-dotenv
 requests
 pillow
+dotenv
