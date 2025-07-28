@@ -16,8 +16,8 @@ faiss-cpu
 beautifulsoup4
 wikipedia
 youtube_transcript_api
+unstructured[all-docs]
 # misc
 python-dotenv
 requests
 pillow
-dotenv
