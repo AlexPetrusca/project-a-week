@@ -5,6 +5,7 @@ __pycache__
 # NPM and Node.js
 node_modules
 dist
+out
 
 # Editor directories and files
 .vscode/*
