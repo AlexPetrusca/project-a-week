@@ -6,6 +6,7 @@ matplotlib
 ipywidgets
 # langchain
 langchain
+langchain_chroma
 langchain_community
 langchain-ollama
 langchainhub
