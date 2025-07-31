@@ -6,8 +6,9 @@ matplotlib
 ipywidgets
 # langchain
 langchain
-langchain_chroma
+langchain_core
 langchain_community
+langchain_chroma
 langchain-ollama
 langchainhub
 # langchain dependencies
@@ -17,6 +18,11 @@ faiss-cpu
 beautifulsoup4
 wikipedia
 youtube_transcript_api
+tiktoken
+umap-learn
+voyager
+transformers
+ragatouille
 unstructured[all-docs]
 # misc
 python-dotenv
