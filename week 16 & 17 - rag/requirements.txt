@@ -4,11 +4,15 @@ scipy
 scikit-learn
 matplotlib
 ipywidgets
+ipython
 # langchain
 langchain
+langgraph
+langsmith
 langchain_core
 langchain_community
 langchain_chroma
+langchain_tavily
 langchain-ollama
 langchainhub
 # langchain dependencies
