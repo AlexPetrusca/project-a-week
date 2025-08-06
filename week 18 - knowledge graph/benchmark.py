@@ -125,4 +125,4 @@ for query in queries:
         elif judge_response.choice == 'Both':
             grade += 0.5
 
-    print(f"Grade: {10 * grade}%")
+    print(f"Grade: {100 * grade / RUNS_PER_QUERY}%")
