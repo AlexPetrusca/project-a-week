@@ -4,3 +4,21 @@ scikit-learn
 matplotlib
 graphiti-core
 python-dotenv
+# langchain
+langchain
+langgraph
+langsmith
+langchain_core
+langchain_community
+langchain_text_splitters
+langchain_chroma
+langchain_tavily
+langchain-ollama
+langchainhub
+# langchain
+pydantic
+tiktoken
+chromadb
+faiss-cpu
+unstructured[md]
+python-magic
