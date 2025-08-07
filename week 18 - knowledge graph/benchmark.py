@@ -85,15 +85,15 @@ modelB = second_chain()
 judge = judge_chain()
 
 queries =[
-    # Expected to perform well
+    # Expect better performance
     "What is the seam carving algorithm?",
     "What is the relationship between a prefix sum and an integral image?",
-    "What are some of the best ways to represent a graph in code?"
-    # Not sure what to expect
+    "What are some of the best ways to represent a graph in code?",
+    # Expect about equal performance
     "Given an integer array nums, handle multiple queries of the following types: 1. Update the value of an element in nums. 2. Calculate the sum of the elements of nums between indices left and right inclusive where left <= right. Give a broad strokes overview of how you'd solve this?",
     "What data structures and algorithms do you use to solve the trapping rainwater coding problem?",
     "What is a multiset good for?",
-    # Expected to perform poorly
+    # Expect worse performance
     "What is a fenwick tree?",
 ]
 

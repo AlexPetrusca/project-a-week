@@ -15,7 +15,7 @@ langchain_chroma
 langchain_tavily
 langchain-ollama
 langchainhub
-# langchain
+# langchain dependencies
 pydantic
 tiktoken
 chromadb
