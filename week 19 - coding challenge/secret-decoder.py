@@ -1,4 +1,11 @@
-import time
+# DataAnnotation Tech - coding challenge
+#
+# Fetches a published Google Doc webpage, parses the first HTML table it finds, and reads each row as an
+# (x, y, character) triple. It then reconstructs a 2D grid by placing each character at the specified coordinates,
+# flipping the y-axis so the output isn’t upside-down, and padding each row with a newline so the final string
+# renders correctly. Finally, it flattens the NumPy array into a single string, producing the hidden ASCII message
+# encoded in the table.
+
 from ast import List
 from dataclasses import dataclass
 
