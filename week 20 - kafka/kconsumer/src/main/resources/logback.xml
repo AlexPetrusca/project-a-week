@@ -1,0 +1,19 @@
+<configuration>
+
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>[%d] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Root logger -->
+    <root level="WARN">
+        <appender-ref ref="STDOUT" />
+    </root>
+
+    <!-- Kafka packages -->
+    <logger name="org.apache.kafka" level="ERROR" />
+    <logger name="kafka" level="ERROR" />
+    <logger name="org.apache.zookeeper" level="ERROR" />
+
+</configuration>
