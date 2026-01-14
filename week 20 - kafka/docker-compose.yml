@@ -1,0 +1,50 @@
+services:
+  kafka:
+    image: apache/kafka:4.1.1
+    hostname: kafka
+    ports:
+      - "9092:9092"
+      - "9094:9094"
+    environment:
+      KAFKA_ENABLE_KRAFT: "yes"                           # Use KRaft instead of Zookeeper
+      KAFKA_PROCESS_ROLES: "broker,controller"            # Tells Kafka node what it does
+      KAFKA_NODE_ID: 1                                    # Unique ID per broker
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
+
+      KAFKA_LISTENERS: "PLAINTEXT://:9092,CONTROLLER://:9093,PLAINTEXT_HOST://:9094"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9094"
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT"
+      KAFKA_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
+
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"             # auto create topics if they don't exist (typically "false" in production)
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1           # Controls how many copies of the __consumer_offsets topic exist across brokers (typically 3)
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1   # Controls replication for the internal __transaction_state topic (typically 3)
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1              # Minimum In-Sync Replicas (ISR) required for writes to succeed (typically 2, to tolerate 1 broker failure)
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 1                 # Default replication factor for user topics (typically 3)
+      KAFKA_MIN_INSYNC_REPLICAS: 1                        # Minimum ISR for user topics (typically 2, to tolerate 1 broker failure)
+
+      KAFKA_UNCLEAN_LEADER_ELECTION_ENABLE: "false"       # Don't elect out-of-sync replicas as leader
+      KAFKA_LOG_RETENTION_HOURS: 168                      # 7 days retention
+      KAFKA_LOG_SEGMENT_BYTES: 1073741824                 # 1GB segments
+
+  producer:
+    image: kproducer:latest
+    environment:
+      KAFKA_BROKER: "kafka:9092"
+    depends_on:
+      - kafka
+    deploy:
+      replicas: 1
+#      replicas: 2   # Scale producers
+
+  consumer:
+    image: kconsumer:latest
+    environment:
+      KAFKA_BROKER: "kafka:9092"
+      KAFKA_CONSUMER_GROUP: "group-1"
+    depends_on:
+      - kafka
+    deploy:
+      replicas: 1
+#      replicas: 3   # Scale consumers
