@@ -1,0 +1,59 @@
+kafka:
+  enabled: true
+  replicas: 3
+  image:
+    repository: apache/kafka
+    tag: "4.1.1"
+    pullPolicy: IfNotPresent
+
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "500m"
+    limits:
+      memory: "2Gi"
+      cpu: "1000m"
+
+  storage:
+    size: 10Gi
+    storageClass: ""  # Use default storage class
+
+  config:
+    offsetsTopicReplicationFactor: 3
+    transactionStateLogReplicationFactor: 3
+    transactionStateLogMinIsr: 2
+    defaultReplicationFactor: 3
+    minInsyncReplicas: 2
+    autoCreateTopics: true
+
+producer:
+  enabled: true
+  replicas: 2
+  image:
+    repository: alexpetrusca/kproducer
+    tag: "latest"
+    pullPolicy: Always
+
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+
+consumer:
+  enabled: true
+  replicas: 2
+  image:
+    repository: alexpetrusca/kconsumer
+    tag: "latest"
+    pullPolicy: Always
+
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"

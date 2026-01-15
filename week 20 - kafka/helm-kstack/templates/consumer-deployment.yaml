@@ -1,0 +1,32 @@
+{{- if .Values.consumer.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kafka-stack.fullname" . }}-consumer
+  labels:
+    {{- include "kafka-stack.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.consumer.replicas }}
+  selector:
+    matchLabels:
+      app: kafka-consumer
+  template:
+    metadata:
+      labels:
+        app: kafka-consumer
+    spec:
+      containers:
+        - name: consumer
+          image: "{{ .Values.consumer.image.repository }}:{{ .Values.consumer.image.tag }}"
+          imagePullPolicy: {{ .Values.consumer.image.pullPolicy }}
+          env:
+            - name: KAFKA_BROKER
+              value: "{{ include "kafka-stack.fullname" . }}-kafka-0.{{ include "kafka-stack.fullname" . }}-headless:9092,{{ include "kafka-stack.fullname" . }}-kafka-1.{{ include "kafka-stack.fullname" . }}-headless:9092,{{ include "kafka-stack.fullname" . }}-kafka-2.{{ include "kafka-stack.fullname" . }}-headless:9092"
+          resources:
+            requests:
+              memory: {{ .Values.consumer.resources.requests.memory }}
+              cpu: {{ .Values.consumer.resources.requests.cpu }}
+            limits:
+              memory: {{ .Values.consumer.resources.limits.memory }}
+              cpu: {{ .Values.consumer.resources.limits.cpu }}
+{{- end }}

@@ -1,0 +1,32 @@
+{{- if .Values.producer.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kafka-stack.fullname" . }}-producer
+  labels:
+    {{- include "kafka-stack.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.producer.replicas }}
+  selector:
+    matchLabels:
+      app: kafka-producer
+  template:
+    metadata:
+      labels:
+        app: kafka-producer
+    spec:
+      containers:
+        - name: producer
+          image: "{{ .Values.producer.image.repository }}:{{ .Values.producer.image.tag }}"
+          imagePullPolicy: {{ .Values.producer.image.pullPolicy }}
+          env:
+            - name: KAFKA_BROKER
+              value: "{{ include "kafka-stack.fullname" . }}-kafka-0.{{ include "kafka-stack.fullname" . }}-headless:9092,{{ include "kafka-stack.fullname" . }}-kafka-1.{{ include "kafka-stack.fullname" . }}-headless:9092,{{ include "kafka-stack.fullname" . }}-kafka-2.{{ include "kafka-stack.fullname" . }}-headless:9092"
+          resources:
+            requests:
+              memory: {{ .Values.producer.resources.requests.memory }}
+              cpu: {{ .Values.producer.resources.requests.cpu }}
+            limits:
+              memory: {{ .Values.producer.resources.limits.memory }}
+              cpu: {{ .Values.producer.resources.limits.cpu }}
+{{- end }}

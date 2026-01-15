@@ -1,0 +1,23 @@
+{{- if .Values.kafka.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "kafka-stack.fullname" . }}-kafka-scripts
+  labels:
+    {{- include "kafka-stack.labels" . | nindent 4 }}
+data:
+  setup.sh: |
+    #!/bin/bash
+    set -e
+
+    # Extract node ID from hostname (kafka-0 -> 1, kafka-1 -> 2, kafka-2 -> 3)
+    NODE_ID=$((${HOSTNAME##*-} + 1))
+    export KAFKA_NODE_ID=$NODE_ID
+
+    echo "=====> Starting Kafka with NODE_ID: $KAFKA_NODE_ID"
+    echo "=====> Hostname: $HOSTNAME"
+    echo "=====> Pod Name: $POD_NAME"
+
+    # Start Kafka
+    exec /etc/kafka/docker/run
+{{- end }}
