@@ -57,3 +57,73 @@ consumer:
     limits:
       memory: "512Mi"
       cpu: "500m"
+
+kafka-ui:
+  enabled: true
+
+  yamlApplicationConfig:
+    kafka:
+      clusters:
+        - name: local
+          bootstrapServers: helm-kstack-kafka-stack-kafka-0.helm-kstack-kafka-stack-headless:9092,helm-kstack-kafka-stack-kafka-1.helm-kstack-kafka-stack-headless:9092,helm-kstack-kafka-stack-kafka-2.helm-kstack-kafka-stack-headless:9092
+
+    auth:
+      type: disabled  # or "LOGIN_FORM" for production
+
+    management:
+      health:
+        ldap:
+          enabled: false
+
+  service:
+    type: LoadBalancer  # or NodePort, ClusterIP
+    port: 8082
+
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 250m
+    limits:
+      memory: 512Mi
+      cpu: 500m
+
+#kubernetes-dashboard:
+#  enabled: true
+#
+#  kong:
+#    image:
+#      repository: kong
+#      tag: "3.9.1"
+#      pullPolicy: IfNotPresent
+#
+#    proxy:
+#      type: LoadBalancer
+#      http:
+#        enabled: true
+#        servicePort: 8001
+#
+#  ingress:
+#    enabled: false
+#    className: nginx
+#    hosts:
+#      - dashboard.local
+#    # tls:
+#    #   - secretName: dashboard-tls
+#    #     hosts:
+#    #       - dashboard.local
+#
+#  metricsScraper:
+#    enabled: true # shows resource usage
+#
+#  protocolHttp: false  # use HTTPS
+#
+#  resources:
+#    requests:
+#      cpu: 100m
+#      memory: 200Mi
+#    limits:
+#      cpu: 200m
+#      memory: 400Mi
+#
+#  rbac:
+#    clusterReadOnlyRole: false  # Set to true for read-only access
