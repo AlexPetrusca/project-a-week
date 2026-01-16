@@ -9,6 +9,3 @@ dependencies:
   - name: kafka-ui
     version: 1.6.0
     repository: https://kafbat.github.io/helm-charts
-#  - name: kubernetes-dashboard
-#    version: 7.10.0
-#    repository: https://kubernetes.github.io/dashboard
